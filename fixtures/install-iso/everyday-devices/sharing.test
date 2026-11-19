@@ -1,0 +1,11 @@
+{
+ NAME "Native queue is not shared"
+ OPERATION Get-Printer-Attributes
+ GROUP operation-attributes-tag
+ ATTR charset attributes-charset utf-8
+ ATTR language attributes-natural-language en
+ ATTR uri printer-uri $uri
+ ATTR keyword requested-attributes printer-is-shared
+ STATUS successful-ok
+ EXPECT printer-is-shared OF-TYPE boolean WITH-VALUE "false"
+}

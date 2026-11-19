@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Integrated guest foundation setup/recovery
+DefaultDependencies=no
+Requires=sysinit.target enzimos-target-provision.service
+After=sysinit.target enzimos-target-provision.service
+AllowIsolate=yes

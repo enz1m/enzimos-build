@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=enzimOS diagnostic early-userspace checks
+DefaultDependencies=no
+Requires=systemd-udevd.service
+After=systemd-udevd.service
+OnFailure=poweroff.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /usr/lib/enzimos-lab/initrd-smoke.sh
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console
+TimeoutStartSec=30

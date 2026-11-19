@@ -1,0 +1,12 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+build() {
+    add_binary /usr/bin/python
+    add_binary /usr/lib/libffi.so.8
+    add_full_dir /usr/lib/python3.14
+    add_full_dir /usr/lib/enzimos
+    add_full_dir /etc/apparmor.d
+    add_file /usr/lib/enzimos-lab/foundation_recovery.py
+    add_file /usr/lib/enzimos-lab/foundation_test.py
+}
+help() { echo 'Self-contained headless enzimOS qualification and recovery tools'; }

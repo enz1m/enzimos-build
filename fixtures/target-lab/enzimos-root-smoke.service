@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=enzimOS persistent root diagnostic
+After=local-fs.target systemd-tmpfiles-setup.service
+OnFailure=poweroff.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /usr/lib/enzimos-lab/root-smoke.sh
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console
+TimeoutStartSec=90
+[Install]
+WantedBy=multi-user.target

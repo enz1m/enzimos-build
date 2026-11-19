@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=enzimOS integrated headless qualification
+After=NetworkManager.service systemd-resolved.service firewalld.service chronyd.service apparmor.service systemd-user-sessions.service
+Requires=apparmor.service
+OnFailure=poweroff.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python /usr/lib/enzimos-lab/foundation_test.py
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console
+TimeoutStartSec=40min
+[Install]
+WantedBy=multi-user.target
