@@ -341,6 +341,8 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
     try:
         verified = verify_plan(cohort/'resolution/resolution.json', keyring, cohort/'packages', out/'verification', trust_lock)
         if not 189 <= verified['package_count'] <= 1024:raise Invalid('reviewed install cohort size expected')
+        if not any(record['name'] == 'linux-firmware-marvell' for record in verified['packages']):
+            raise Invalid('install cohort must include linux-firmware-marvell for Marvell Wi-Fi')
         # A native replacement (patched portal) takes an Arch package's place on the target:
         # that Arch package stays out of the media pool (the live root still has it), so the
         # installer's Arch body never installs it and the native body meets no conflict.

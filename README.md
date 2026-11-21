@@ -42,7 +42,9 @@ and uses temporary files and synthetic fixtures.
 
 Full image assembly requires reviewed inputs and built packages for Packages,
 Installer Backend, Remote Access, Recovery UI and Updates, plus a staged
-desktop with the graphical installer. By default the five runtime source
+desktop with the graphical installer. Include `linux-firmware-marvell` explicitly
+in the package cohort so the live and installed systems can load Marvell Wi-Fi
+firmware. By default the five runtime source
 checkouts go beside this repository. Use `--runtime-repos` to point at another
 parent directory and `--installer-build` for the paired runtime package summary.
 Use `--recovery-env-build` to include a separately built recovery environment.

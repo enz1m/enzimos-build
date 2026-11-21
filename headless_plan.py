@@ -16,7 +16,7 @@ FOUNDATION = REQUIRED | {'kernel-modules-hook', 'snapper', 'snap-pac', 'restic',
 
 
 # Consumer hardware support uses distribution packages, not a custom detector.
-HARDWARE = {'linux-firmware', 'sof-firmware', 'alsa-firmware', 'intel-ucode', 'amd-ucode',
+HARDWARE = {'linux-firmware', 'linux-firmware-marvell', 'sof-firmware', 'alsa-firmware', 'intel-ucode', 'amd-ucode',
             'wireless-regdb', 'b43-fwcutter', 'iw',
             'mesa', 'vulkan-intel', 'vulkan-radeon', 'vulkan-nouveau', 'intel-media-driver',
             'nvidia-open', 'nvidia-open-lts', 'nvidia-utils',
