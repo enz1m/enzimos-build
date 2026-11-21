@@ -56,6 +56,30 @@ The build and VM scripts require the corresponding Linux tools, such as
 bubblewrap, makepkg, QEMU and firmware. Use a fresh output directory for each
 run. A development image still needs separate release and hardware qualification.
 
+## Surface Laptop touch
+
+For a development image, add the IPTS module and iptsd to the desktop stage
+before assembling the ISO. The stage is included on the live and installed systems.
+
+1. Apply the `drivers/hid/ipts/` hunks from the [Linux Surface IPTS patch](https://github.com/linux-surface/linux-surface/blob/arch-7.2.15-1/patches/7.2/0005-ipts.patch).
+   Build the module with the target kernel headers using
+   `make -C "$KERNEL_HEADERS" M="$IPTS_DRIVER" CONFIG_HID_IPTS=m modules`.
+2. Build [iptsd v3.1.1](https://github.com/linux-surface/iptsd/tree/v3.1.1) with
+   Meson, prefix `/usr`, systemd support and `-Ddebug_tools=[]`. Install to a
+   temporary `DESTDIR` using dependencies compatible with the ISO cohort.
+3. Run the staging helper.
+
+   ```sh
+   python stage_surface_touch.py "$DESKTOP_STAGE" \
+       --module "$IPTS_DRIVER/ipts.ko" \
+       --iptsd-stage "$IPTSD_STAGE" \
+       --kernel-release "$KERNEL_RELEASE"
+   ```
+
+The driver loads for the matching MEI device on the exact kernel ABI. Rebuild it
+for updated kernels and test touch and pen on hardware. DMA remapping and module
+signature enforcement can require a separately qualified kernel.
+
 ## VM scenarios
 
 Some explicit scenarios need additional input paths.
