@@ -40,6 +40,8 @@ MAX_ISO = 10*1024**3
 # Installer files placed in the live root (source name -> path in the root).
 LIVE_FILES = {'enzimos-install.sh': 'usr/lib/enzimos-installer/enzimos-install.sh',
               'live-select.sh': 'usr/lib/enzimos-installer/live-select.sh',
+              'installer-session.sh': 'usr/lib/enzimos-installer-ui/installer-session',
+              'installer-hyprland.lua': 'usr/share/enzimos-installer-ui/hyprland.lua',
               'enzimos-live.sysusers': 'usr/lib/sysusers.d/enzimos-live.conf',
               'enzimos-live.tmpfiles': 'usr/lib/tmpfiles.d/enzimos-live.conf',
               'enzimos-live.sudoers': 'etc/sudoers.d/enzimos-live',
@@ -65,7 +67,10 @@ cp -a /desktop/. root/
 bsdtar -xpf /policy.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE --exclude .INSTALL --exclude .CHANGELOG
 bsdtar -xpf /policy-native.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE --exclude .INSTALL --exclude .CHANGELOG
 bsdtar -xpf /installer-native.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE --exclude .INSTALL --exclude .CHANGELOG
-while read -r source dest; do install -D -m "$( [[ $dest == *.sh ]] && echo 0755 || echo 0644 )" "/installer/$source" "root/$dest"; done < live-files.txt
+while read -r source dest; do install -D -m "$( [[ $source == *.sh ]] && echo 0755 || echo 0644 )" "/installer/$source" "root/$dest"; done < live-files.txt
+for executable in usr/lib/enzimos-installer-ui/installer-session usr/bin/Hyprland usr/bin/enzimos-installer; do
+    [[ -x root/$executable ]] || { echo "Missing executable in graphical installer: /$executable" >&2; exit 1; }
+done
 install -m 0644 VERSION root/usr/lib/enzimos-installer/VERSION
 chmod 0440 root/etc/sudoers.d/enzimos-live
 ln -sf /usr/lib/systemd/system/graphical.target root/etc/systemd/system/default.target

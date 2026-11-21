@@ -173,9 +173,18 @@ def payload_iso(out, build):
             shutil.copyfile(fixture_input('ENZIMOS_VM_MCP_BUILD_SUMMARY'),stage/'expected-build.json')
         if str(build) in ('review-ui', 'live-ui-probe'):
             # The review payload carries the current UI independently of the installation ISO.
-            ui = Path(__file__).resolve().parents[1]/'enzimos-installer-ui'
+            repos = Path(__file__).resolve().parents[1]
+            ui = repos/'enzimos-installer-ui'
+            live = repos/'enzimos-installer/live'
             shutil.copyfile(ui/'target/release/enzimos-installer', stage/'enzimos-installer')
-            shutil.copytree(ui/'data', stage/'data')
+            for source, destination in (
+                (live/'installer-session.sh', 'lib/enzimos-installer-ui/installer-session'),
+                (live/'installer-hyprland.lua', 'share/enzimos-installer-ui/hyprland.lua'),
+                (ui/'assets/org.enzimos.Installer.svg', 'share/icons/hicolor/scalable/apps/org.enzimos.Installer.svg'),
+            ):
+                target = stage/'data/usr'/destination
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
         args = sandbox(out)+['--', '/usr/bin/xorriso', '-as', 'mkisofs', '-quiet', '-R', '-V', 'ENZIMOS_TESTPAYLOAD', '-o', '/work/testpayload.iso', '/work/testpayload']
         subprocess.run(args, check=True, timeout=60, stdout=subprocess.DEVNULL);return {str(build)+'_test': True}
     reports = [load(Path(item)) for item in str(build).split(',')]
