@@ -75,6 +75,35 @@ class FlatpakMediaTests(unittest.TestCase):
                     build_install_iso.stage_flatpaks(media, base, ours)
                 self.assertEqual(list(media.iterdir()), [])
 
+    def test_each_sideload_carries_its_platform_graphics_extensions(self):
+        def ref(directory, name, collection='org.flathub.Stable'):
+            path = directory / 'usb/.ostree/repo/refs/mirrors' / collection / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('0' * 64 + '\n')
+        platform = 'runtime/org.freedesktop.Platform/x86_64/26.08'
+        gl = 'runtime/org.freedesktop.Platform.GL.default/x86_64/26.08'
+        flathub = source(self.root, 'fh', 'flathub.flatpakrepo', [FLATHUB_APP])
+        for name, refs, collection, accepted in (
+            ('complete', [platform, gl, gl + '-extra'], 'org.flathub.Stable', True),
+            ('apps-only', [], 'org.flathub.Stable', True),
+            ('without-gl', [platform], 'org.flathub.Stable', False),
+            ('without-extra', [platform, gl], 'org.flathub.Stable', False),
+            ('wrong-collection', [platform, gl, gl + '-extra'], 'org.enzimos.Apps', False),
+        ):
+            with self.subTest(name=name):
+                ours = source(self.root, name, 'enzimos.flatpakrepo', [BROWSER],
+                              'PASS-enzimos-flatpaks-prepared')
+                for value in refs:
+                    ref(ours, value, collection if value != platform else 'org.flathub.Stable')
+                media = self.root / ('media-' + name)
+                media.mkdir()
+                if accepted:
+                    build_install_iso.stage_flatpaks(media, flathub, ours)
+                else:
+                    with self.assertRaises(Invalid):
+                        build_install_iso.stage_flatpaks(media, flathub, ours)
+                    self.assertEqual(list(media.iterdir()), [])
+
 
 if __name__ == '__main__':
     unittest.main()

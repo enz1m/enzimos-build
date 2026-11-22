@@ -258,6 +258,21 @@ def live_menu(menu, development):
         raise Invalid('live boot menu has no "Install enzimOS" entry to mark')
     return marked
 
+def require_runtime_graphics(repo):
+    """Require both Mesa GL.default refs alongside each Flathub Platform runtime."""
+    root = repo/'refs/mirrors/org.flathub.Stable/runtime'
+    extensions = root/'org.freedesktop.Platform.GL.default'
+    for ref in sorted((root/'org.freedesktop.Platform').glob('*/*')):
+        if not ref.is_file():
+            continue
+        arch, branch = ref.parent.name, ref.name
+        missing = [name for name in (branch, branch + '-extra')
+                   if not (extensions/arch/name).is_file()]
+        if missing:
+            raise Invalid(f'offline Flatpak runtime org.freedesktop.Platform/{arch}/{branch} '
+                          f'lacks graphics extensions: {", ".join(missing)}')
+
+
 def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None):
     """Offline Flatpak sources on the medium, one directory per remote, each a create-usb
     repository plus its .flatpakrepo and apps.txt. Returns the manifest entries."""
@@ -278,6 +293,9 @@ def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None):
         extra['enzimos_flatpaks'] = apps(enzimos_flatpak)
         if set(extra['enzimos_flatpaks']) & set(flatpaks):
             raise Invalid('enzimOS Flatpak selection overlaps Flathub')
+    for source in (flatpak, enzimos_flatpak):
+        if source is not None:
+            require_runtime_graphics(source/'usb/.ostree/repo')
     for source, directory, descriptor in (
         (flatpak, 'flatpak', 'flathub.flatpakrepo'),
         (enzimos_flatpak, 'flatpak-enzimos', 'enzimos.flatpakrepo'),
