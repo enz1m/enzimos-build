@@ -24,12 +24,13 @@ class RuntimePayloadTests(unittest.TestCase):
             payload[binding_path]=json.dumps(binding).encode();payload[license_path]=b'MIT\n'
             if mutate and component=='packages':mutate(payload,binaries)
             package=root/(component+'.pkg.tar.zst')
+            version='0.2.0-2' if component=='packages' else '0.2.0-1'
             with tarfile.open(package,'w:zst') as archive:
-                entries={'.PKGINFO':f'pkgname = {name}\npkgver = 0.2.0-1\narch = x86_64\n'.encode(),**payload}
+                entries={'.PKGINFO':f'pkgname = {name}\npkgver = {version}\narch = x86_64\n'.encode(),**payload}
                 for path,data in entries.items():
                     info=tarfile.TarInfo(path);info.size=len(data);info.mode=0o644 if path in (binding_path,license_path,'.PKGINFO','.INSTALL') else 0o755
                     archive.addfile(info,io.BytesIO(data))
-            records[component]={'package_name':name,'package':f'work/{root.name}/{package.name}' if component == 'packages' else package.name,'sha256':hashlib.sha256(package.read_bytes()).hexdigest(),'version':'0.2.0-1','automatic_activation':False,'elf_count':COUNTS[component]}
+            records[component]={'package_name':name,'package':f'work/{root.name}/{package.name}' if component == 'packages' else package.name,'sha256':hashlib.sha256(package.read_bytes()).hexdigest(),'version':version,'automatic_activation':False,'elf_count':COUNTS[component]}
         summary=root/'summary.json';summary.write_text(json.dumps({'result':'PASS','packages':records,'elf_count':sum(COUNTS.values()),'automatic_activation':False}))
         media=root/'media';media.mkdir()
         return summary,media,repos
@@ -38,6 +39,8 @@ class RuntimePayloadTests(unittest.TestCase):
             args=self.fixture(Path(tmp));result=stage(*args)
             self.assertEqual(set(result),set(COMPONENTS));self.assertEqual(len(list(args[1].iterdir())),5)
             self.assertTrue(all(v['automatic_activation'] is False for v in result.values()))
+            self.assertEqual(result['packages']['release'], 2)
+            self.assertEqual(result['installer']['release'], 1)
             desktop = Path(tmp)/'desktop'
             native = desktop/'usr/lib/installer/bin-0'
             native.parent.mkdir(parents=True);native.write_bytes(b'old helper')
