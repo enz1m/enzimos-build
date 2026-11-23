@@ -48,9 +48,9 @@ firmware. By default the five runtime source
 checkouts go beside this repository. Use `--runtime-repos` to point at another
 parent directory and `--installer-build` for the paired runtime package summary.
 Use `--recovery-env-build` to include a separately built recovery environment.
-The current installer expects a Flathub application declaration when enzimOS
-Flatpaks are included. A media layout with only enzimOS apps and Flathub
-runtimes requires installer support.
+The enzimOS Flatpak fleet can use a Flathub source for runtimes alone. The
+builder omits Zen from the install selection, including when reusing a legacy
+export. This layout requires installer 0.2.0-3 or newer.
 
 The build and VM scripts require the corresponding Linux tools, such as
 bubblewrap, makepkg, QEMU and firmware. Use a fresh output directory for each

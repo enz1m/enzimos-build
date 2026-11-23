@@ -64,7 +64,7 @@ selection = Path('/usr/share/enzimos')
 declared = set((selection / 'default-flatpaks.txt').read_text().split())
 if (selection / 'enzimos-flatpaks.txt').is_file():
     declared.update((selection / 'enzimos-flatpaks.txt').read_text().split())
-assert apps == declared and 'app.zen_browser.zen' in apps, (apps, declared)
+assert apps == declared, (apps, declared)
 
 session_mime_env = [
     line for line in env.splitlines()
@@ -95,14 +95,15 @@ for app, types in (
         assert default == desktop, (mime, desktop, default)
 units=subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','systemctl','--user','list-units','--no-legend','enzui-platform-desktop-*.service'],text=True)
 assert 'running' in units,units
-ctl('dispatch','hl.dsp.exec_cmd('+json.dumps('flatpak run app.zen_browser.zen --no-remote about:blank')+')')
-wait('Zen browser missing',lambda:'zen' in ctl('-j','clients').lower(),limit=120)
-print('ENZIMOS_DESKTOP_APP_UP',flush=True)
-time.sleep(30)
-print('ENZIMOS_ZEN_PORTAL_REVIEW_READY',flush=True)
-wait('native browser portal missing',lambda:'dev.enzui.FileChooser' in ctl('-j','clients'),limit=300)
-print('ENZIMOS_ZEN_NATIVE_PORTAL_UP',flush=True)
-wait('native browser portal close',lambda:'dev.enzui.FileChooser' not in ctl('-j','clients'),limit=300)
+if 'app.zen_browser.zen' in apps:
+    ctl('dispatch','hl.dsp.exec_cmd('+json.dumps('flatpak run app.zen_browser.zen --no-remote about:blank')+')')
+    wait('Zen browser missing',lambda:'zen' in ctl('-j','clients').lower(),limit=120)
+    print('ENZIMOS_DESKTOP_APP_UP',flush=True)
+    time.sleep(30)
+    print('ENZIMOS_ZEN_PORTAL_REVIEW_READY',flush=True)
+    wait('native browser portal missing',lambda:'dev.enzui.FileChooser' in ctl('-j','clients'),limit=300)
+    print('ENZIMOS_ZEN_NATIVE_PORTAL_UP',flush=True)
+    wait('native browser portal close',lambda:'dev.enzui.FileChooser' not in ctl('-j','clients'),limit=300)
 ctl('dispatch','hl.dsp.exec_cmd('+json.dumps('ENZUI_SETTINGS_PAGE=agents/permissions enzui-settings')+')')
 wait('Settings missing',lambda:alive('enzui-settings','admin'))
 print('ENZIMOS_SETTINGS_AGENTS_UP',flush=True)

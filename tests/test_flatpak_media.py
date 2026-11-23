@@ -75,6 +75,26 @@ class FlatpakMediaTests(unittest.TestCase):
                     build_install_iso.stage_flatpaks(media, base, ours)
                 self.assertEqual(list(media.iterdir()), [])
 
+    def test_legacy_zen_export_supplies_runtimes_without_selecting_zen(self):
+        zen = 'app.zen_browser.zen'
+        flathub = source(self.root, 'fh', 'flathub.flatpakrepo', [zen])
+        ours = source(self.root, 'ez', 'enzimos.flatpakrepo', [BROWSER],
+                      'PASS-enzimos-flatpaks-prepared')
+        media = self.root / 'media'
+        media.mkdir()
+        with self.assertRaisesRegex(Invalid, 'installer 0.2.0-3'):
+            build_install_iso.stage_flatpaks(media, flathub, ours, installer_release=2)
+        self.assertEqual(list(media.iterdir()), [])
+        self.assertEqual(
+            build_install_iso.stage_flatpaks(media, flathub, ours),
+            ([], {'enzimos_flatpaks': [BROWSER]}),
+        )
+        self.assertTrue((media / 'flatpak/repo/config').is_file())
+        self.assertEqual((media / 'flatpak/apps.txt').read_bytes(), b'')
+        self.assertEqual((flathub / 'apps.txt').read_text().splitlines(), [zen])
+        self.assertEqual(build_install_iso.stage_flatpaks(self.root / 'none', flathub), ([], {}))
+        self.assertFalse((self.root / 'none').exists())
+
     def test_each_sideload_carries_its_platform_graphics_extensions(self):
         def ref(directory, name, collection='org.flathub.Stable'):
             path = directory / 'usb/.ostree/repo/refs/mirrors' / collection / name

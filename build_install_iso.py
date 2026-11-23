@@ -273,39 +273,45 @@ def require_runtime_graphics(repo):
                           f'lacks graphics extensions: {", ".join(missing)}')
 
 
-def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None):
+def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_release=3):
     """Offline Flatpak sources on the medium, one directory per remote, each a create-usb
     repository plus its .flatpakrepo and apps.txt. Returns the manifest entries."""
     flatpaks, extra = [], {}
     if enzimos_flatpak and not flatpak:raise Invalid('enzimOS Flatpak apps need the Flathub runtime source')
     def apps(source):
         values = [line.strip() for line in (source/'apps.txt').read_text().splitlines() if line.strip()]
-        if not 0 < len(values) <= 128 or len(values) != len(set(values)):
-            raise Invalid('offline Flatpak selection must contain 1–128 distinct apps')
+        if len(values) > 128 or len(values) != len(set(values)):
+            raise Invalid('offline Flatpak selection must contain at most 128 distinct apps')
         return values
     if flatpak:
         flatpak = Path(flatpak).resolve(strict=True)
-        flatpaks = apps(flatpak)
+        flatpaks = [app for app in apps(flatpak) if app != 'app.zen_browser.zen']
     if enzimos_flatpak:
         enzimos_flatpak = Path(enzimos_flatpak).resolve(strict=True)
         if load(enzimos_flatpak/'build.json').get('status') != 'PASS-enzimos-flatpaks-prepared':
             raise Invalid('reviewed enzimOS Flatpak export required')
         extra['enzimos_flatpaks'] = apps(enzimos_flatpak)
+        if not extra['enzimos_flatpaks'] or 'app.zen_browser.zen' in extra['enzimos_flatpaks']:
+            raise Invalid('invalid enzimOS offline application selection')
         if set(extra['enzimos_flatpaks']) & set(flatpaks):
             raise Invalid('enzimOS Flatpak selection overlaps Flathub')
+    if not flatpaks and not enzimos_flatpak:
+        flatpak = None
+    if enzimos_flatpak and not flatpaks and installer_release < 3:
+        raise Invalid('Flathub runtimes without apps require installer 0.2.0-3 or newer')
     for source in (flatpak, enzimos_flatpak):
         if source is not None:
             require_runtime_graphics(source/'usb/.ostree/repo')
-    for source, directory, descriptor in (
-        (flatpak, 'flatpak', 'flathub.flatpakrepo'),
-        (enzimos_flatpak, 'flatpak-enzimos', 'enzimos.flatpakrepo'),
+    for source, directory, descriptor, selected in (
+        (flatpak, 'flatpak', 'flathub.flatpakrepo', flatpaks),
+        (enzimos_flatpak, 'flatpak-enzimos', 'enzimos.flatpakrepo', extra.get('enzimos_flatpaks', [])),
     ):
         if source is None:
             continue
         staged = media/directory
         shutil.copytree(source/'usb/.ostree/repo', staged/'repo', symlinks=True)
-        for name in (descriptor, 'apps.txt'):
-            shutil.copyfile(source/name, staged/name)
+        shutil.copyfile(source/descriptor, staged/descriptor)
+        (staged/'apps.txt').write_text(''.join(app + '\n' for app in selected))
     return flatpaks, extra
 
 
@@ -389,9 +395,11 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         from rust_runtime_payload import owned_paths as rust_owned_paths, stage as stage_rust_runtime
         runtime_admission = out/'native-target-runtime';runtime_admission.mkdir()
         native_rust = stage_rust_runtime(installer_build, runtime_admission, runtime_repos)
-        live = live_root(verified, cohort, desktop, out, version, package, native_installer['package'], runtime_admission/'rust-packages.pkg.tar.zst', installer=installer)
         stage = out/'iso-root';(stage/'boot/limine').mkdir(parents=True);(stage/'EFI/BOOT').mkdir(parents=True)
         media = stage/'enzimos';(media/'packages').mkdir(parents=True)
+        flatpaks, enzimos_flatpaks = stage_flatpaks(
+            media, flatpak, enzimos_flatpak, installer_release=native_rust['installer']['release'])
+        live = live_root(verified, cohort, desktop, out, version, package, native_installer['package'], runtime_admission/'rust-packages.pkg.tar.zst', installer=installer)
         limine = out/'live/root/usr/share/limine'
         for name in ('limine-bios-cd.bin', 'limine-uefi-cd.bin', 'limine-bios.sys'):shutil.copyfile(limine/name, stage/'boot/limine'/name)
         shutil.copyfile(limine/'BOOTX64.EFI', stage/'EFI/BOOT/BOOTX64.EFI')
@@ -427,7 +435,6 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
                 owned.update(listed.keys() if isinstance(listed, dict) else listed)
         desktop_files = desktop_archive(desktop, media, frozenset(owned)) if desktop else 0
         os.link(live['squashfs'], media/'live.sfs')
-        flatpaks, enzimos_flatpaks = stage_flatpaks(media, flatpak, enzimos_flatpak)
         backend = None
         if backend_build:
             backend = load(backend_build)

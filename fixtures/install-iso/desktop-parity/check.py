@@ -57,7 +57,12 @@ for entry in ['fcitx5-configtool.desktop', 'qv4l2.desktop', 'qvidcap.desktop']:
     assert 'NoDisplay=true' in Path('/usr/share/applications', entry).read_text()
 assert 'Storage=none' in command(['systemd-analyze', 'cat-config', 'systemd/coredump.conf'])
 assert 'PercentageCritical=5' in Path('/etc/UPower/UPower.conf').read_text()
-assert command(['flatpak', 'list', '--system', '--app', '--columns=application']).splitlines() == ['app.zen_browser.zen']
+apps = set(command(['flatpak', 'list', '--system', '--app', '--columns=application']).splitlines())
+selection = Path('/usr/share/enzimos')
+declared = set((selection / 'default-flatpaks.txt').read_text().split())
+if (selection / 'enzimos-flatpaks.txt').is_file():
+    declared.update((selection / 'enzimos-flatpaks.txt').read_text().split())
+assert apps == declared, (apps, declared)
 print('ENZIMOS_PARITY_PROVIDERS_PASS', flush=True)
 wait('native greeter', lambda: alive('enzui-greeter', 'greeter'))
 print('ENZIMOS_PARITY_GREETER_READY', flush=True)
@@ -186,11 +191,12 @@ def dispatch(expression):
 def clients():
     return user(['env', 'HYPRLAND_INSTANCE_SIGNATURE=' + signature, 'hyprctl', '-j', 'clients'])
 
-dispatch('hl.dsp.exec_cmd("flatpak run app.zen_browser.zen --no-remote about:blank")')
-wait('real Zen launch', lambda: 'zen' in clients().lower())
-print('ENZIMOS_PARITY_ZEN_VISUAL_READY', flush=True)
-wait('Zen visual acknowledgement', lambda: Path('/home/admin/parity-zen-reviewed').is_file(), seconds=900)
-user(['flatpak', 'kill', 'app.zen_browser.zen'])
+if 'app.zen_browser.zen' in apps:
+    dispatch('hl.dsp.exec_cmd("flatpak run app.zen_browser.zen --no-remote about:blank")')
+    wait('real Zen launch', lambda: 'zen' in clients().lower())
+    print('ENZIMOS_PARITY_ZEN_VISUAL_READY', flush=True)
+    wait('Zen visual acknowledgement', lambda: Path('/home/admin/parity-zen-reviewed').is_file(), seconds=900)
+    user(['flatpak', 'kill', 'app.zen_browser.zen'])
 dispatch('hl.dsp.exec_cmd("enzui-settings")')
 print('ENZIMOS_PARITY_VISUAL_READY', flush=True)
 wait('visual acknowledgement', lambda: Path('/home/admin/parity-reviewed').is_file(), seconds=900)
