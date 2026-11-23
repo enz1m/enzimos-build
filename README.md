@@ -48,9 +48,19 @@ firmware. By default the five runtime source
 checkouts go beside this repository. Use `--runtime-repos` to point at another
 parent directory and `--installer-build` for the paired runtime package summary.
 Use `--recovery-env-build` to include a separately built recovery environment.
-The enzimOS Flatpak fleet can use a Flathub source for runtimes alone. The
-builder omits Zen from the install selection, including when reusing a legacy
-export. This layout requires installer 0.2.0-3 or newer.
+Prepare the release Flatpak inputs from the signed enzimOS repository:
+
+```sh
+python3 -B prepare_flatpak_media.py --output /path/to/new-flatpak-media \
+  --flathub-descriptor /path/to/flathub.flatpakrepo
+```
+
+Pass its `flathub/` and `enzimos/` directories as `--flatpak` and
+`--enzimos-flatpak`. The installer keeps the online remotes as the apps’
+origins and installs the selected refs and runtimes from the media. Use
+installer 0.2.0-4 or newer and the native Files, Terminal, Text and Store
+packages. Task Manager comes from the signed Flatpak fleet. Historical
+images can still be assembled with their original reviewed inputs.
 
 The build and VM scripts require the corresponding Linux tools, such as
 bubblewrap, makepkg, QEMU and firmware. Use a fresh output directory for each

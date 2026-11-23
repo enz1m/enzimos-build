@@ -29,6 +29,8 @@ from headless_plan import DESKTOP_INTEGRATION, LOGIN_PERSONALIZATION
 RUNTIME_REPOS = Path(__file__).resolve().parent.parent
 INSTALLER = RUNTIME_REPOS/'enzimos-installer/live'
 VOLUME = 'ENZIMOS_INSTALL'
+OFFICIAL_FLATPAK_MEDIA = 'PASS-official-flatpak-media'
+ENZIMOS_DESCRIPTOR_SHA256 = 'd9628aee0aaca7826c9410719b1d72daefe9d55ffc9a813c831b7ff7979c89ff'
 # Keep assembly bounded while carrying offline accessibility voices and Unicode
 # data. Accessibility added~47MiB; the reviewed native Store and existing
 # CPU/Vulkan/speech runtime archives add~73MiB. Keep a finite development bound.
@@ -273,6 +275,25 @@ def require_runtime_graphics(repo):
                           f'lacks graphics extensions: {", ".join(missing)}')
 
 
+def verify_official_flatpak_media(source, receipt, selected, flathub_apps, installer_release):
+    expected = Path(__file__).with_name('default-flatpaks.txt').read_text().splitlines()
+    if selected != expected or receipt.get('apps') != expected or flathub_apps:
+        raise Invalid('official Flatpak media must carry the default fleet and Flathub runtimes only')
+    if installer_release < 4:
+        raise Invalid('official Flatpak media require installer 0.2.0-4 or newer')
+    if digest(source/'enzimos.flatpakrepo') != ENZIMOS_DESCRIPTOR_SHA256:
+        raise Invalid('official Flatpak media has a different repository descriptor')
+    repo = source/'usb/.ostree/repo/refs/mirrors/org.enzimos.Apps'
+    commits = receipt.get('commits', {})
+    for app in selected:
+        ref = repo/f'app/{app}/x86_64/stable'
+        commit = commits.get(app, '')
+        if not re.fullmatch(r'[0-9a-f]{64}', commit) or not ref.is_file() or ref.read_text().strip() != commit:
+            raise Invalid(f'official Flatpak media lacks the pinned stable deployment for {app}')
+    if not (repo/'runtime/dev.enzim.WebKit.Platform/x86_64/26.08-1').is_file():
+        raise Invalid('official Flatpak media lacks the Browser WebKit Platform')
+
+
 def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_release=3):
     """Offline Flatpak sources on the medium, one directory per remote, each a create-usb
     repository plus its .flatpakrepo and apps.txt. Returns the manifest entries."""
@@ -288,13 +309,17 @@ def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_relea
         flatpaks = [app for app in apps(flatpak) if app != 'app.zen_browser.zen']
     if enzimos_flatpak:
         enzimos_flatpak = Path(enzimos_flatpak).resolve(strict=True)
-        if load(enzimos_flatpak/'build.json').get('status') != 'PASS-enzimos-flatpaks-prepared':
+        receipt = load(enzimos_flatpak/'build.json')
+        if receipt.get('status') != 'PASS-enzimos-flatpaks-prepared':
             raise Invalid('reviewed enzimOS Flatpak export required')
         extra['enzimos_flatpaks'] = apps(enzimos_flatpak)
         if not extra['enzimos_flatpaks'] or 'app.zen_browser.zen' in extra['enzimos_flatpaks']:
             raise Invalid('invalid enzimOS offline application selection')
         if set(extra['enzimos_flatpaks']) & set(flatpaks):
             raise Invalid('enzimOS Flatpak selection overlaps Flathub')
+        if receipt.get('provenance') == OFFICIAL_FLATPAK_MEDIA:
+            verify_official_flatpak_media(enzimos_flatpak, receipt, extra['enzimos_flatpaks'],
+                                         flatpaks, installer_release)
     if not flatpaks and not enzimos_flatpak:
         flatpak = None
     if enzimos_flatpak and not flatpaks and installer_release < 3:
@@ -427,6 +452,9 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         owned = rust_owned_paths(runtime_repos)
         app_builds = dict(app_builds or {})
         if set(app_builds) - {'files', 'text', 'task-manager'}:raise Invalid('unknown native app build')
+        if ('task-manager' in app_builds
+                and 'io.github.enzui.TaskManager' in enzimos_flatpaks.get('enzimos_flatpaks', [])):
+            raise Invalid('Task Manager is already selected as a Flatpak')
         # enzimos-mount depends on the Qt-free aft-mtp-mount package; admit both or neither.
         if bool(mount_build) != bool(aft_build):raise Invalid('mount and aft-mtp builds go together')
         for report_path in (terminal_build, store_build, permissions_build, harness_build, developer_build, remote_build, background_build, monitor_build, mcp_build, portal_build, greetd_build, keyring_build, phone_build, mount_build, aft_build, icon_theme_build, *app_builds.values()):

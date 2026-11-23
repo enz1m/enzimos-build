@@ -1,0 +1,9 @@
+org.enzim.Browser
+org.enzimos.Calculator
+io.github.enzui.Calendar
+io.enz.Messages
+io.github.enzui.Music
+org.enzimos.Photos
+io.github.enzui.Reader
+io.github.enzui.Remote
+io.github.enzui.TaskManager

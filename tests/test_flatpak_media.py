@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import build_install_iso
 from contract import Invalid
@@ -94,6 +95,35 @@ class FlatpakMediaTests(unittest.TestCase):
         self.assertEqual((flathub / 'apps.txt').read_text().splitlines(), [zen])
         self.assertEqual(build_install_iso.stage_flatpaks(self.root / 'none', flathub), ([], {}))
         self.assertFalse((self.root / 'none').exists())
+
+    def test_official_media_requires_the_signed_fleet_and_current_installer(self):
+        apps = Path(build_install_iso.__file__).with_name('default-flatpaks.txt').read_text().splitlines()
+        flathub = source(self.root, 'fh', 'flathub.flatpakrepo', [])
+        ours = source(self.root, 'ez', 'enzimos.flatpakrepo', apps)
+        commit = 'a' * 64
+        (ours/'build.json').write_text(json.dumps({
+            'status': 'PASS-enzimos-flatpaks-prepared',
+            'provenance': build_install_iso.OFFICIAL_FLATPAK_MEDIA,
+            'apps': apps,
+            'commits': dict.fromkeys(apps, commit),
+        }))
+        repo = ours/'usb/.ostree/repo/refs/mirrors/org.enzimos.Apps'
+        for name in [*(f'app/{app}/x86_64/stable' for app in apps),
+                     'runtime/dev.enzim.WebKit.Platform/x86_64/26.08-1']:
+            ref = repo/name
+            ref.parent.mkdir(parents=True)
+            ref.write_text(commit + '\n')
+        expected = build_install_iso.digest(ours/'enzimos.flatpakrepo')
+        with patch.object(build_install_iso, 'ENZIMOS_DESCRIPTOR_SHA256', expected):
+            with self.assertRaisesRegex(Invalid, '0.2.0-4'):
+                build_install_iso.stage_flatpaks(self.root/'old', flathub, ours)
+            self.assertEqual(
+                build_install_iso.stage_flatpaks(self.root/'current', flathub, ours, installer_release=4),
+                ([], {'enzimos_flatpaks': apps}),
+            )
+            (repo/f'app/{BROWSER}/x86_64/stable').write_text('b' * 64)
+            with self.assertRaisesRegex(Invalid, f'stable deployment for {BROWSER}'):
+                build_install_iso.stage_flatpaks(self.root/'changed', flathub, ours, installer_release=4)
 
     def test_each_sideload_carries_its_platform_graphics_extensions(self):
         def ref(directory, name, collection='org.flathub.Stable'):
