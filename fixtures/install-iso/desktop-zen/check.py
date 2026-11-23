@@ -57,13 +57,42 @@ print('ENZIMOS_DESKTOP_AUTH_PASS',flush=True)
 # Environment inherited by systemd/D-Bus activation must target this compositor.
 env=subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','systemctl','--user','show-environment'],text=True)
 assert f'HYPRLAND_INSTANCE_SIGNATURE={instance}' in env and 'WAYLAND_DISPLAY=' in env
-apps=subprocess.check_output(['flatpak','list','--system','--app','--columns=application'],text=True).splitlines()
-assert apps==['app.zen_browser.zen'],apps
-assert 'app.zen_browser.zen.desktop' in Path('/etc/xdg/mimeapps.list').read_text()
-assert Path('/var/lib/flatpak/exports/share/applications/app.zen_browser.zen.desktop').is_file()
-for mime in ('x-scheme-handler/http','x-scheme-handler/https','text/html'):
-    default=subprocess.check_output(['runuser','-u','admin','--','xdg-mime','query','default',mime],text=True).strip()
-    assert default=='app.zen_browser.zen.desktop',(mime,default)
+apps = set(subprocess.check_output(
+    ['flatpak', 'list', '--system', '--app', '--columns=application'], text=True
+).splitlines())
+selection = Path('/usr/share/enzimos')
+declared = set((selection / 'default-flatpaks.txt').read_text().split())
+if (selection / 'enzimos-flatpaks.txt').is_file():
+    declared.update((selection / 'enzimos-flatpaks.txt').read_text().split())
+assert apps == declared and 'app.zen_browser.zen' in apps, (apps, declared)
+
+session_mime_env = [
+    line for line in env.splitlines()
+    if line.startswith(('XDG_CURRENT_DESKTOP=', 'XDG_DATA_DIRS='))
+]
+assert len(session_mime_env) == 2, session_mime_env
+browser = 'org.enzim.Browser' if 'org.enzim.Browser' in apps else 'app.zen_browser.zen'
+video = 'io.github.enzui.Video' if 'io.github.enzui.Video' in apps else 'org.enzimos.Photos'
+for app, types in (
+    (browser, ('x-scheme-handler/http', 'x-scheme-handler/https', 'text/html', 'application/xhtml+xml')),
+    ('io.github.enzui.Mail', ('x-scheme-handler/mailto',)),
+    ('io.github.enzui.Calendar', ('text/calendar',)),
+    ('io.github.enzui.Reader', ('application/pdf', 'application/epub+zip')),
+    ('io.github.enzui.Music', ('audio/ogg', 'audio/flac')),
+    ('org.enzimos.Photos', ('image/png', 'image/avif')),
+    (video, ('video/mp4', 'video/webm')),
+    ('io.github.enzui.Remote', ('application/x-rdp',)),
+):
+    if app not in apps:
+        continue
+    desktop = app + '.desktop'
+    assert (Path('/var/lib/flatpak/exports/share/applications') / desktop).is_file(), desktop
+    for mime in types:
+        default = subprocess.check_output(
+            ['runuser', '-u', 'admin', '--', 'env', *session_mime_env, 'xdg-mime', 'query', 'default', mime],
+            text=True,
+        ).strip()
+        assert default == desktop, (mime, desktop, default)
 units=subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','systemctl','--user','list-units','--no-legend','enzui-platform-desktop-*.service'],text=True)
 assert 'running' in units,units
 ctl('dispatch','hl.dsp.exec_cmd('+json.dumps('flatpak run app.zen_browser.zen --no-remote about:blank')+')')
