@@ -17,7 +17,7 @@ def overlay(report_path, desktop, output):
     admission = output.parent / (output.name + '-admission')
     admission.mkdir(exist_ok=False)
     receipt = stage(report_path, admission, 'terminal')
-    subprocess.run(['cp', '--reflink=always', '-a', str(desktop), str(output)], check=True)
+    subprocess.run(['cp', '--reflink=auto', '-a', str(desktop), str(output)], check=True)
     with tarfile.open(admission/'terminal.pkg.tar.zst', 'r|zst') as archive:
         for member in archive:
             if member.name not in report['files']:

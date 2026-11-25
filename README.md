@@ -3,6 +3,89 @@
 Tools for checking enzimOS manifests, preparing package inputs, assembling
 development installation media and running integration checks in disposable VMs.
 
+## Build the installation ISO
+
+`build_iso.py` builds the full enzimOS installation ISO from published
+packages. It needs an x86_64 Linux system with root access, Python 3.11 or
+newer, `gpg`, `tar`, `zstd` and about 60 GB of free disk space.
+
+```sh
+git clone https://github.com/enz1m/enzimos-build
+cd enzimos-build
+sudo python3 build_iso.py --output ~/enzimos-iso
+```
+
+The output directory receives the ISO (`enzimos-YYYYMMDD-x86_64.iso`, about
+9.5 GB), its SHA-256 checksum, a JSON summary of the package versions and the
+assembler's `build.json`. Each build uses the newest published packages:
+
+- Arch Linux packages from the Arch mirrors, checked against the Arch Linux
+  master keys;
+- enzimOS packages from the `enzimos` and `enzimos-os` repositories at
+  [packages.enzim.dev](https://packages.enzim.dev), checked against the pinned
+  enzimOS repository key;
+- the default Flatpak apps from [flatpak.enzim.dev](https://flatpak.enzim.dev)
+  and their Flathub runtimes.
+
+This repository pins only the package names (`build_iso.py` and
+`headless_plan.py`). The builder prepares an Arch build root from the
+signature-checked Arch bootstrap image, so any distribution can host the
+build. Root access is used only for that build root; the packages are verified
+and the ISO is assembled by an unprivileged user inside it, so the host kernel
+must allow unprivileged user namespaces.
+
+A first build downloads about 7 GB and uses about 32 GB in the work directory
+(`--work`, default `OUTPUT/work`). Later builds reuse the downloads. Use
+`--fast` for quicker compression while testing and `--no-flatpak` to leave out
+the offline apps. Supply `--secure-key` and `--secure-certificate` to sign the
+boot files for firmware that trusts your own Secure Boot key.
+
+### Check the image in a VM
+
+Install the image unattended in a local QEMU/KVM VM from this checkout:
+
+```sh
+python3 -c "import install_iso_vm as v; print(v.run('install', 'uefi', '/tmp/enzimos-vm',
+    iso='$HOME/enzimos-iso/enzimos-YYYYMMDD-x86_64.iso', guest_ram_mib=4096))"
+```
+
+The installer stages the native packages in RAM, so the VM needs 4 GiB and
+the host about 8 GiB of free memory.
+
+### Add your own files
+
+The desktop stage is the file tree copied onto the live and installed
+systems. After a first build, copy the published stage from
+`OUTPUT/work/build/desktop`, change the copy and build again with it:
+
+```sh
+sudo cp -a ~/enzimos-iso/work/build/desktop ~/my-desktop
+# add or change files under ~/my-desktop (as root: the stage keeps root-only files)
+sudo python3 build_iso.py --output ~/enzimos-iso --desktop ~/my-desktop
+```
+
+For example, to add Surface Laptop touch and pen support:
+
+1. Apply the `drivers/hid/ipts/` hunks from the [Linux Surface IPTS patch](https://github.com/linux-surface/linux-surface/blob/arch-7.2.15-1/patches/7.2/0005-ipts.patch).
+   Build the module against the headers of the kernel the ISO carries (the
+   `kernel` field of the JSON summary) with
+   `make -C "$KERNEL_HEADERS" M="$IPTS_DRIVER" CONFIG_HID_IPTS=m modules`.
+2. Build [iptsd v3.1.1](https://github.com/linux-surface/iptsd/tree/v3.1.1) with
+   Meson, prefix `/usr`, systemd support and `-Ddebug_tools=[]`, and install it
+   to a temporary `DESTDIR`.
+3. Add both to the stage copy:
+
+   ```sh
+   sudo python3 stage_surface_touch.py ~/my-desktop \
+       --module "$IPTS_DRIVER/ipts.ko" \
+       --iptsd-stage "$IPTSD_STAGE" \
+       --kernel-release "$KERNEL_RELEASE"
+   ```
+
+The module loads only on the exact kernel it was built for, so rebuild it when
+the published kernel changes. DMA remapping and module signature enforcement
+can require a separately qualified kernel.
+
 ## Validate the manifests
 
 Clone [enzimOS Manifests](https://github.com/enz1m/enzimos-manifests) alongside
@@ -58,37 +141,13 @@ python3 -B prepare_flatpak_media.py --output /path/to/new-flatpak-media \
 Pass its `flathub/` and `enzimos/` directories as `--flatpak` and
 `--enzimos-flatpak`. The installer keeps the online remotes as the apps’
 origins and installs the selected refs and runtimes from the media. Use
-installer 0.2.0-4 or newer and the native Files, Terminal, Text and Store
-packages. Task Manager comes from the signed Flatpak fleet. Historical
+installer 0.2.0-5 or newer, which installs the full native package set in one
+transaction, and the native Files, Terminal, Text and Store packages. Task Manager comes from the signed Flatpak fleet. Historical
 images can still be assembled with their original reviewed inputs.
 
 The build and VM scripts require the corresponding Linux tools, such as
 bubblewrap, makepkg, QEMU and firmware. Use a fresh output directory for each
 run. A development image still needs separate release and hardware qualification.
-
-## Surface Laptop touch
-
-For a development image, add the IPTS module and iptsd to the desktop stage
-before assembling the ISO. The stage is included on the live and installed systems.
-
-1. Apply the `drivers/hid/ipts/` hunks from the [Linux Surface IPTS patch](https://github.com/linux-surface/linux-surface/blob/arch-7.2.15-1/patches/7.2/0005-ipts.patch).
-   Build the module with the target kernel headers using
-   `make -C "$KERNEL_HEADERS" M="$IPTS_DRIVER" CONFIG_HID_IPTS=m modules`.
-2. Build [iptsd v3.1.1](https://github.com/linux-surface/iptsd/tree/v3.1.1) with
-   Meson, prefix `/usr`, systemd support and `-Ddebug_tools=[]`. Install to a
-   temporary `DESTDIR` using dependencies compatible with the ISO cohort.
-3. Run the staging helper.
-
-   ```sh
-   python stage_surface_touch.py "$DESKTOP_STAGE" \
-       --module "$IPTS_DRIVER/ipts.ko" \
-       --iptsd-stage "$IPTSD_STAGE" \
-       --kernel-release "$KERNEL_RELEASE"
-   ```
-
-The driver loads for the matching MEI device on the exact kernel ABI. Rebuild it
-for updated kernels and test touch and pen on hardware. DMA remapping and module
-signature enforcement can require a separately qualified kernel.
 
 ## VM scenarios
 

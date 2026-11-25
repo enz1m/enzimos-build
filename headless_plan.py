@@ -103,10 +103,8 @@ DEVELOPER_PROFILES = {
 DEVELOPER_OPTIONAL = set().union(*DEVELOPER_PROFILES.values())
 
 
-def read_seed(path):
-    seed = load(path)
-    object_fields(seed, 'schema_version purpose architecture repository_snapshot requested_packages databases limitations', 'headless seed')
-    same(seed['schema_version'], 1, 'seed version')
+def seed_purposes():
+    """The reviewed package set for each seed purpose."""
     purposes = {'install-media-desktop-parity-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | DESKTOP_INTEGRATION | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland','xdg-desktop-portal-gtk'},
                 'install-media-desktop-zen-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland','xdg-desktop-portal-gtk'},
                 'install-media-boot-recovery-preview-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | {'plymouth','refind','efibootmgr','ntfsprogs'},
@@ -128,6 +126,14 @@ def read_seed(path):
     purposes['install-media-desktop-login-not-release-payload'] = purposes['install-media-desktop-memory-not-release-payload'] | LOGIN_PERSONALIZATION
     purposes.update({f'developer-profile-{name}-fixtures-not-product-payload': packages
                      for name, packages in DEVELOPER_PROFILES.items()})
+    return purposes
+
+
+def read_seed(path):
+    seed = load(path)
+    object_fields(seed, 'schema_version purpose architecture repository_snapshot requested_packages databases limitations', 'headless seed')
+    same(seed['schema_version'], 1, 'seed version')
+    purposes = seed_purposes()
     if type(seed['purpose']) is not str or seed['purpose'] not in purposes:
         raise Invalid('unknown reviewed seed purpose')
     required = purposes[seed['purpose']]
