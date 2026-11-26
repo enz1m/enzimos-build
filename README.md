@@ -40,6 +40,12 @@ A first build downloads about 7 GB and uses about 32 GB in the work directory
 the offline apps. Supply `--secure-key` and `--secure-certificate` to sign the
 boot files for firmware that trusts your own Secure Boot key.
 
+The signed `enzimos-iso-desktop` stage carries the Shell build's private
+Xwayland companion to both the live and installed desktops. For stages with
+an Xwayland pin, the assembler checks its executable, license and runtime
+packages against the desktop build's receipt and the Arch package cohort.
+The media manifest records the admitted Xwayland build.
+
 ### Check the image in a VM
 
 Install the image unattended in a local QEMU/KVM VM from this checkout:

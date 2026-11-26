@@ -15,6 +15,7 @@ import os
 import re
 from pathlib import Path
 import shutil
+from stat import S_IMODE
 import sys
 
 from contract import Invalid, digest, load
@@ -187,6 +188,35 @@ def xorriso(stage, out):
             '-b', 'boot/limine/limine-bios-cd.bin', '-no-emul-boot', '-boot-load-size', '4', '-boot-info-table',
             '--efi-boot', 'boot/limine/limine-uefi-cd.bin', '-efi-boot-part', '--efi-boot-image', '--protective-msdos-label',
             '-o', '/output/enzimos.iso', '/source']
+
+
+XWAYLAND_BINARY = 'usr/lib/enzui/compositor/hyprland-current-build/Xwayland'
+XWAYLAND_COPYING = 'usr/share/licenses/enzui-desktop/Xwayland-COPYING'
+XWAYLAND_RUNTIME = {'xorg-xwayland', 'xorg-xkbcomp', 'xkeyboard-config', 'libbsd', 'libmd'}
+
+
+def check_desktop_xwayland(desktop, packages):
+    desktop = Path(desktop).resolve(strict=True)
+    lock = desktop / 'usr/share/enzui/sources.lock.json'
+    pin = load(lock).get('xwayland') if lock.is_file() else None
+    manifest_path = desktop / 'usr/share/enzui/manifest.json'
+    manifest = load(manifest_path) if manifest_path.is_file() else {}
+    receipt = manifest.get('compositor', {}).get('xwayland')
+    if pin is None and receipt is None and not (desktop / XWAYLAND_BINARY).exists():
+        return None
+    if not pin or not receipt or any(receipt.get(key) != value for key, value in pin.items()):
+        raise Invalid('desktop stage must include the locked Xwayland build receipt')
+    for relative, mode, checksum in (
+        (XWAYLAND_BINARY, 0o755, receipt.get('binary_sha256')),
+        (XWAYLAND_COPYING, 0o644, receipt.get('notice_sha256')),
+    ):
+        path = desktop / relative
+        if (path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(desktop)
+                or S_IMODE(path.stat().st_mode) != mode or digest(path) != checksum):
+            raise Invalid(f'desktop Xwayland companion or license differs from its receipt: {relative}')
+    if missing := XWAYLAND_RUNTIME - set(packages):
+        raise Invalid('desktop Xwayland runtime packages missing: ' + ', '.join(sorted(missing)))
+    return receipt
 
 
 def desktop_archive(stage, media, owned=frozenset()):
@@ -417,6 +447,7 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
             from terminal_payload import overlay
             desktop = overlay(terminal_build, desktop, out/'terminal-desktop')
         check_desktop_integration_packages(desktop, [r['name'] for r in verified['packages']])
+        xwayland = check_desktop_xwayland(desktop, [r['name'] for r in target_packages])
         if pbuild['release'] >= 136 and 'earlyoom' not in {r['name'] for r in verified['packages']}:
             raise Invalid('memory protection runtime missing from installer cohort')
         version = out/'VERSION';version.write_text(f"{label} native-policy 0.1.0-{pbuild['release']} cohort {digest(cohort/'resolution/resolution.json')[:12]}\n")
@@ -468,6 +499,8 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
             if report_path:
                 listed = load(report_path).get('files') or {}
                 owned.update(listed.keys() if isinstance(listed, dict) else listed)
+        if xwayland and owned.intersection({XWAYLAND_BINARY, XWAYLAND_COPYING}):
+            raise Invalid('native package would replace an admitted Xwayland companion file')
         desktop_files = desktop_archive(desktop, media, frozenset(owned)) if desktop else 0
         os.link(live['squashfs'], media/'live.sfs')
         backend = None
@@ -522,6 +555,8 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         manifest = {'native_rust':native_rust, 'native_apps':native_apps, 'activity_service':activity, 'ai_runtime':ai_runtime, 'secure_media':secure_media, 'schema': 1, 'label': label, 'development_artifact': True, 'release_authorized': False, 'native_policy': {'release': pbuild['release'], 'sha256': pbuild['sha256']},
                     'cohort_plan_sha256': digest(cohort/'resolution/resolution.json'), 'package_count': len(names), 'nvidia_conditional': sorted(nvidia & set(by_name)), 'trust_lock_sha256': digest(trust_lock),
                     'review_before': lock['review_before'], 'kernel': live['kernel'], 'live': {'packages': live['packages'], 'excluded': live['excluded'], 'graphical_installer': True, 'native_installer': native_installer}, 'installer_sha256': digest(out/'live/root/usr/lib/enzimos-installer/enzimos-install.sh'), 'desktop_preview_files': desktop_files, 'flatpaks': flatpaks, **enzimos_flatpaks, 'update_client': None if updater is None else {'release':updater['release'],'sha256':updater['sha256']}, **({} if recovery_env is None else {'recovery_env': recovery_env}), 'mcp_center': None if broker is None else {'release':broker['release'],'sha256':broker['sha256']}, 'backend': None if backend is None else {'release': backend['release'], 'sha256': backend['sha256']}}
+        if xwayland:
+            manifest['desktop_xwayland'] = xwayland
         (media/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
         write_media_checksums(media)
         run_command(xorriso(stage, out), out, 'xorriso', 900)

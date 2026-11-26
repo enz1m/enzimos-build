@@ -54,7 +54,8 @@ TOOLS = ('python', 'bubblewrap', 'fakeroot', 'libarchive', 'squashfs-tools', 'xo
 # The seed purpose whose reviewed package set the media carry.
 PURPOSE = 'install-media-desktop-login-not-release-payload'
 # Arch packages the enzimOS components need beyond the reviewed set.
-EXTRA_ARCH = ('greetd-agreety', 'linux-firmware-marvell', 'gst-plugin-va', 'gst-plugins-bad', 'libnotify', 'poppler-glib')
+EXTRA_ARCH = ('greetd-agreety', 'linux-firmware-marvell', 'gst-plugin-va', 'gst-plugins-bad', 'libnotify', 'poppler-glib',
+              'xorg-xkbcomp', 'libbsd', 'libmd')
 # enzimOS packages the media carry, by name. The newest version across the
 # enzimos-os and enzimos repositories is used.
 COMPONENTS = (
