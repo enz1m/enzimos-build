@@ -185,11 +185,14 @@ print('ENZIMOS_PARITY_UDISKS_PASS', flush=True)
 instances = list(Path('/run/user/1000/hypr').glob('*'))
 assert len(instances) == 1
 signature = instances[0].name
+control = Path('/usr/lib/enzui/compositor/hyprland-current-build/hyprctl/enz-hyprctl')
+if not control.is_file():
+    control = Path('/usr/bin/hyprctl')
 def dispatch(expression):
-    return user(['env', 'HYPRLAND_INSTANCE_SIGNATURE=' + signature, 'hyprctl', 'dispatch', expression])
+    return user(['env', 'HYPRLAND_INSTANCE_SIGNATURE=' + signature, str(control), 'dispatch', expression])
 
 def clients():
-    return user(['env', 'HYPRLAND_INSTANCE_SIGNATURE=' + signature, 'hyprctl', '-j', 'clients'])
+    return user(['env', 'HYPRLAND_INSTANCE_SIGNATURE=' + signature, str(control), '-j', 'clients'])
 
 if 'app.zen_browser.zen' in apps:
     dispatch('hl.dsp.exec_cmd("flatpak run app.zen_browser.zen --no-remote about:blank")')

@@ -70,7 +70,14 @@ bsdtar -xpf /policy.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exc
 bsdtar -xpf /policy-native.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE --exclude .INSTALL --exclude .CHANGELOG
 bsdtar -xpf /installer-native.pkg.tar.zst -C root --numeric-owner --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE --exclude .INSTALL --exclude .CHANGELOG
 while read -r source dest; do install -D -m "$( [[ $source == *.sh ]] && echo 0755 || echo 0644 )" "/installer/$source" "root/$dest"; done < live-files.txt
-for executable in usr/lib/enzimos-installer-ui/installer-session usr/bin/Hyprland usr/bin/enzimos-installer; do
+compositor=usr/lib/enzui/compositor/hyprland-current-build
+compositor_bin=$compositor/enz-hyprland
+compositor_ctl=$compositor/hyprctl/enz-hyprctl
+if [[ ! -x root/$compositor_bin && ! -x root/$compositor_ctl ]]; then
+    compositor_bin=usr/bin/Hyprland
+    compositor_ctl=usr/bin/hyprctl
+fi
+for executable in usr/lib/enzimos-installer-ui/installer-session "$compositor_bin" "$compositor_ctl" usr/bin/enzimos-installer; do
     [[ -x root/$executable ]] || { echo "Missing executable in graphical installer: /$executable" >&2; exit 1; }
 done
 install -m 0644 VERSION root/usr/lib/enzimos-installer/VERSION

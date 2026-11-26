@@ -41,8 +41,11 @@ wait('wallpaper missing',lambda:alive('enzui-wallpaper','admin'))
 instances=list(Path('/run/user/1000/hypr').glob('*'))
 assert len(instances)==1
 instance=instances[0].name
+control=comp/'hyprland-current-build/hyprctl/enz-hyprctl'
+if not control.is_file():
+    control=Path('/usr/bin/hyprctl')
 def ctl(*args):
-    return subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000',f'HYPRLAND_INSTANCE_SIGNATURE={instance}','/usr/bin/hyprctl',*args],text=True)
+    return subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000',f'HYPRLAND_INSTANCE_SIGNATURE={instance}',str(control),*args],text=True)
 assert ctl('--batch','repl return hl.plugin and hl.plugin.enzui_sidebar_scene ~= nil or false').strip()=='true'
 time.sleep(8)
 assert 'Authentication' not in ctl('-j','clients')

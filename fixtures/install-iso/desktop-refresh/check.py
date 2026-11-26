@@ -6,7 +6,10 @@ ROOT=Path('/usr/share/enzui')
 report=json.loads((ROOT/'desktop-snapshot.json').read_text())
 for name,identity in report['binaries'].items():
     assert hashlib.sha256((ROOT/'bin'/name).read_bytes()).hexdigest()==identity
-assert hashlib.sha256((ROOT/'bin/Hyprland').read_bytes()).hexdigest()==report['compositor_sha256']
+comp=ROOT/'bin/enz-hyprland'
+if not comp.is_file():
+    comp=ROOT/'bin/Hyprland'
+assert hashlib.sha256(comp.read_bytes()).hexdigest()==report['compositor_sha256']
 assert hashlib.sha256((ROOT/'plugins/enzui-pointer-events.so').read_bytes()).hexdigest()==report['plugin_sha256']
 def wait(label,check,limit=120):
     for _ in range(limit):
@@ -24,8 +27,11 @@ wait('wallpaper missing',lambda:alive('enzui-wallpaper','admin'))
 instances=list(Path('/run/user/1000/hypr').glob('*'))
 assert len(instances)==1
 instance=instances[0].name
+control=Path('/usr/lib/enzui/compositor/hyprland-current-build/hyprctl/enz-hyprctl')
+if not control.is_file():
+    control=Path('/usr/bin/hyprctl')
 def ctl(*args):
-    return subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000',f'HYPRLAND_INSTANCE_SIGNATURE={instance}','/usr/bin/hyprctl',*args],text=True)
+    return subprocess.check_output(['runuser','-u','admin','--','env','XDG_RUNTIME_DIR=/run/user/1000',f'HYPRLAND_INSTANCE_SIGNATURE={instance}',str(control),*args],text=True)
 assert report['pointer_plugin_functional_in_installed_session'] is False
 assert ctl('--batch','repl return hl.plugin and hl.plugin.enzui_sidebar_scene ~= nil or false').strip()=='false'
 time.sleep(8)

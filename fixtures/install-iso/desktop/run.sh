@@ -14,8 +14,10 @@ if wait_for session 300 pgrep -u admin -f /usr/share/enzui/bin/enzui-shell; then
     sleep 40
     # An offline-installed Flathub app (GTK/libadwaita) opened inside the enzUI session.
     signature=$(find /run/user/1000/hypr -mindepth 1 -maxdepth 1 -printf "%f\n" 2>/dev/null | head -1)
+    control=/usr/lib/enzui/compositor/hyprland-current-build/hyprctl/enz-hyprctl
+    [[ -x "$control" ]] || control=/usr/bin/hyprctl
     runuser -u admin -- env XDG_RUNTIME_DIR=/run/user/1000 HYPRLAND_INSTANCE_SIGNATURE="$signature" \
-        /usr/bin/hyprctl dispatch 'hl.dsp.exec_cmd("flatpak run org.gnome.Calculator")' | sed 's/^/ENZIMOS_DESKTOP_DISPATCH /'
+        "$control" dispatch 'hl.dsp.exec_cmd("flatpak run org.gnome.Calculator")' | sed 's/^/ENZIMOS_DESKTOP_DISPATCH /'
     if wait_for flatpak-app 120 pgrep -u admin -f gnome-calculator; then sleep 20; printf '\nENZIMOS_DESKTOP_APP_UP\n'; sleep 30; fi
     printf 'ENZIMOS_DESKTOP_PROCESSES %s\n' "$(pgrep -u admin -a -f /usr/share/enzui | awk '{print $2}' | xargs -n1 basename | sort | tr '\n' ' ')"
     loginctl list-sessions --no-legend | sed 's/^/ENZIMOS_DESKTOP_SESSION /'
