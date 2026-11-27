@@ -3,8 +3,7 @@
 import hashlib,json,shutil
 from pathlib import Path
 NAMES={'enzimos-inference-service','enzimos-ai-gateway','enzimos-dictation','enzimos-llama-cpu','enzimos-llama-vulkan','enzimos-whisper-cpu','enzimos-sherpa-onnx-cpu','enzimos-ai-models'}
-# The base models package holds about 750 MB of weights; the others are small.
-LIMITS={'enzimos-ai-models':1024*1024*1024}
+LIMITS={'enzimos-ai-models':2*1024*1024*1024}
 REQUIRED={'enzimos-inference-service','enzimos-ai-gateway','enzimos-llama-cpu'}
 def stage(report_path,media):
     report=json.loads(Path(report_path).read_text());rows=report.get('packages',[])
