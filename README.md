@@ -92,6 +92,15 @@ The module loads only on the exact kernel it was built for, so rebuild it when
 the published kernel changes. DMA remapping and module signature enforcement
 can require a separately qualified kernel.
 
+## Refresh a cached Arch cohort
+
+For a cached development cohort, `acquire_packages.py` normally fetches every
+archive from the plan's dated `repository_snapshot`. A package record can
+specify its own `repository_snapshot` to refresh one package without changing
+the baseline. Use the replacement's URL, archive size and SHA-256 from its
+snapshot metadata. Verify the package signature and resolve dependencies
+against the complete resulting cohort.
+
 ## Validate the manifests
 
 Clone [enzimOS Manifests](https://github.com/enz1m/enzimos-manifests) alongside

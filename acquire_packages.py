@@ -85,7 +85,10 @@ def validate_plan(plan):
         parsed = urlsplit(url)
         filename = parsed.path.rsplit('/', 1)[-1]
         repo = item.get('repository')
-        prefix = f"https://archive.archlinux.org/repos/{snapshot.replace('-', '/')}/{repo}/os/x86_64/"
+        package_snapshot = item.get('repository_snapshot', snapshot)
+        if type(package_snapshot) is not str or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', package_snapshot):
+            raise Invalid('dated package snapshot required')
+        prefix = f"https://archive.archlinux.org/repos/{package_snapshot.replace('-', '/')}/{repo}/os/x86_64/"
         if repo not in ('core', 'extra', 'multilib') or not url.startswith(prefix) or parsed.query or parsed.fragment:
             raise Invalid('package origin is outside the reviewed snapshot')
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+:-]*\.pkg\.tar\.(zst|xz)', filename) or filename in seen:

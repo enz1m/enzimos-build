@@ -75,6 +75,19 @@ class PackageTrustTests(unittest.TestCase):
         with self.assertRaises(Invalid):
             validate_plan(bad)
 
+    def test_download_plan_requires_explicit_snapshot_for_package_override(self):
+        url = 'https://archive.archlinux.org/repos/2026/11/11/extra/os/x86_64/xorg-xwayland-24.1.15-1-x86_64.pkg.tar.zst'
+        package = {'name': 'xorg-xwayland', 'repository': 'extra', 'url': url,
+                   'download_bytes_from_metadata': 123, 'sha256_from_metadata': 'a' * 64}
+        plan = {'repository_snapshot': '2026-09-27', 'packages': [package]}
+        with self.assertRaises(Invalid):
+            validate_plan(plan)
+        package['repository_snapshot'] = '2026-11-11'
+        self.assertEqual(validate_plan(plan), [package])
+        package['repository_snapshot'] = '../2026/11/11'
+        with self.assertRaises(Invalid):
+            validate_plan(plan)
+
 
 if __name__ == '__main__':
     unittest.main()
