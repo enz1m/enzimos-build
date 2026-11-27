@@ -105,8 +105,8 @@ DEVELOPER_OPTIONAL = set().union(*DEVELOPER_PROFILES.values())
 
 def seed_purposes():
     """The reviewed package set for each seed purpose."""
-    purposes = {'install-media-desktop-parity-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | DESKTOP_INTEGRATION | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland','xdg-desktop-portal-gtk'},
-                'install-media-desktop-zen-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland','xdg-desktop-portal-gtk'},
+    purposes = {'install-media-desktop-parity-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | DESKTOP_INTEGRATION | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland'},
+                'install-media-desktop-zen-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | {'plymouth','refind','efibootmgr','ntfsprogs','xdg-desktop-portal-hyprland'},
                 'install-media-boot-recovery-preview-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | {'plymouth','refind','efibootmgr','ntfsprogs'},
                 'install-media-delivery-rescue-gaming-not-release-payload': FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING | DELIVERY | {'plymouth','refind','efibootmgr','ntfsprogs'},
                 'v2-headless-experiment-not-product-payload': REQUIRED,

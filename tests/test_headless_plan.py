@@ -20,7 +20,7 @@ HEADLESS_PACKAGES = {'base', 'linux', 'linux-lts', 'mkinitcpio', 'btrfs-progs',
 DESKTOP_PACKAGES = (FOUNDATION | HARDWARE | DESKTOP_PREVIEW | FLATPAK | GAMING |
                     DELIVERY | DESKTOP_INTEGRATION | CLI_ESSENTIALS | LOGIN_PERSONALIZATION |
                     {'plymouth', 'refind', 'efibootmgr', 'xdg-desktop-portal-hyprland',
-                     'xdg-desktop-portal-gtk', 'earlyoom'})
+                     'earlyoom'})
 
 
 def seed_fixture(purpose, packages, repositories=('core', 'extra')):
