@@ -16,7 +16,7 @@ sudo python3 build_iso.py --output ~/enzimos-iso
 ```
 
 The output directory receives the ISO (`enzimos-YYYYMMDD-x86_64.iso`, about
-9.5 GB), its SHA-256 checksum, a JSON summary of the package versions and the
+11.4 GB), its SHA-256 checksum, a JSON summary of the package versions and the
 assembler's `build.json`. Each build uses the newest published packages:
 
 - Arch Linux packages from the Arch mirrors, checked against the Arch Linux
@@ -55,8 +55,11 @@ python3 -c "import install_iso_vm as v; print(v.run('install', 'uefi', '/tmp/enz
     iso='$HOME/enzimos-iso/enzimos-YYYYMMDD-x86_64.iso', guest_ram_mib=4096))"
 ```
 
-The installer stages the native packages in RAM, so the VM needs 4 GiB and
-the host about 8 GiB of free memory.
+The installer stages the native packages in RAM (about 1.6 GB; the AI models
+are read from the medium), so the VM needs at least 4 GiB and the host about
+8 GiB of free memory. Release images were qualified with an 8 GiB guest and a
+64 GiB target disk. A 24 GiB target disk is too small for the preinstalled
+Flatpaks and the swap file.
 
 ### Add your own files
 
