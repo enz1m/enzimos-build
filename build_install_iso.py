@@ -37,9 +37,10 @@ ENZIMOS_DESCRIPTOR_SHA256 = 'd9628aee0aaca7826c9410719b1d72daefe9d55ffc9a813c831
 # CPU/Vulkan/speech runtime archives add~73MiB. Keep a finite development bound.
 # The 761-package reviewed desktop/device closure also carries its offline bytes
 # on the media, plus the five Rust runtime packages. The base AI models
-# (~730 MB) and the on-disk recovery environment (~1.2 GB) add about 2 GB.
+# (LFM3-VL-2B, MiniCPM5 and Whisper, ~1.8 GB), offline streaming speech
+# (~120 MB) and the on-disk recovery environment (~1.2 GB) add about 3 GB.
 # Keep a fixed ceiling; do not infer a release payload from size.
-MAX_ISO = 10*1024**3
+MAX_ISO = 12*1024**3
 # Installer files placed in the live root (source name -> path in the root).
 LIVE_FILES = {'enzimos-install.sh': 'usr/lib/enzimos-installer/enzimos-install.sh',
               'live-select.sh': 'usr/lib/enzimos-installer/live-select.sh',
