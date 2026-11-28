@@ -84,7 +84,7 @@ class FlatpakMediaTests(unittest.TestCase):
         media = self.root / 'media'
         media.mkdir()
         with self.assertRaisesRegex(Invalid, 'installer 0.2.0-3'):
-            build_install_iso.stage_flatpaks(media, flathub, ours, installer_release=2)
+            build_install_iso.stage_flatpaks(media, flathub, ours, installer_version=(0, 2, 0, 2))
         self.assertEqual(list(media.iterdir()), [])
         self.assertEqual(
             build_install_iso.stage_flatpaks(media, flathub, ours),
@@ -118,12 +118,12 @@ class FlatpakMediaTests(unittest.TestCase):
             with self.assertRaisesRegex(Invalid, '0.2.0-4'):
                 build_install_iso.stage_flatpaks(self.root/'old', flathub, ours)
             self.assertEqual(
-                build_install_iso.stage_flatpaks(self.root/'current', flathub, ours, installer_release=4),
+                build_install_iso.stage_flatpaks(self.root/'current', flathub, ours, installer_version=(0, 2, 1, 1)),
                 ([], {'enzimos_flatpaks': apps}),
             )
             (repo/f'app/{BROWSER}/x86_64/stable').write_text('b' * 64)
             with self.assertRaisesRegex(Invalid, f'stable deployment for {BROWSER}'):
-                build_install_iso.stage_flatpaks(self.root/'changed', flathub, ours, installer_release=4)
+                build_install_iso.stage_flatpaks(self.root/'changed', flathub, ours, installer_version=(0, 2, 0, 4))
 
     def test_each_sideload_carries_its_platform_graphics_extensions(self):
         def ref(directory, name, collection='org.flathub.Stable'):

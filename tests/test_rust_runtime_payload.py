@@ -6,7 +6,7 @@ from rust_runtime_payload import COMPONENTS,COUNTS,owned_paths,stage
 from build_install_iso import desktop_archive
 
 class RuntimePayloadTests(unittest.TestCase):
-    def fixture(self,root,mutate=None):
+    def fixture(self,root,mutate=None,versions=None):
         repos=root/'repos';records={}
         for component,name in COMPONENTS.items():
             binaries={f'bin-{n}':f'usr/lib/{component}/bin-{n}' for n in range(COUNTS[component])}
@@ -24,7 +24,7 @@ class RuntimePayloadTests(unittest.TestCase):
             payload[binding_path]=json.dumps(binding).encode();payload[license_path]=b'MIT\n'
             if mutate and component=='packages':mutate(payload,binaries)
             package=root/(component+'.pkg.tar.zst')
-            version='0.2.0-2' if component=='packages' else '0.2.0-1'
+            version=(versions or {}).get(component, '0.2.0-2' if component=='packages' else '0.2.0-1')
             with tarfile.open(package,'w:zst') as archive:
                 entries={'.PKGINFO':f'pkgname = {name}\npkgver = {version}\narch = x86_64\n'.encode(),**payload}
                 for path,data in entries.items():
@@ -52,6 +52,16 @@ class RuntimePayloadTests(unittest.TestCase):
                 files = {str(Path(member.name)): archive.extractfile(member).read()
                          for member in archive if member.isfile()}
             self.assertEqual(files, {'usr/share/enzui/SOURCE-REVISION': b'current desktop\n'})
+    def test_only_installer_can_advance_to_0_2_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = self.fixture(Path(tmp), versions={'installer': '0.2.1-1'})
+            installer = stage(*args)['installer']
+            self.assertEqual((installer['version'], installer['release']), ('0.2.1', 1))
+        with tempfile.TemporaryDirectory() as tmp:
+            args = self.fixture(Path(tmp), versions={'updates': '0.2.1-1'})
+            with self.assertRaisesRegex(Invalid, 'paired Rust runtime package identity'):
+                stage(*args)
+
     def test_package_hooks_cannot_enter_copy_only_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
             args=self.fixture(Path(tmp),lambda p,b:p.update({'.INSTALL':b'unsafe'}))

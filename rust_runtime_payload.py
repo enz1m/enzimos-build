@@ -36,7 +36,8 @@ def stage(summary_path, media, repository_root):
         spec=json.loads((Path(repository_root)/('enzimos-'+component)/'packaging/rust/runtime.json').read_text())
         package=runtime_archive(summary_path, record['package'])
         version = record.get('version')
-        match = re.fullmatch(r'0\.2\.0-([1-9][0-9]{0,3})', version) if isinstance(version, str) else None
+        upstream = r'0\.2\.[01]' if component == 'installer' else r'0\.2\.0'
+        match = re.fullmatch(rf'({upstream})-([1-9][0-9]{{0,3}})', version) if isinstance(version, str) else None
         if (record.get('package_name')!=name or match is None
                 or record.get('automatic_activation') is not False or record.get('elf_count')!=COUNTS[component]
                 or package.is_symlink() or not package.is_file() or not 0<package.stat().st_size<=128*1024**2):
@@ -89,6 +90,6 @@ def stage(summary_path, media, repository_root):
         shutil.copyfile(package,destination)
         with destination.open('rb') as stream:
             if hashlib.file_digest(stream,'sha256').hexdigest()!=record['sha256']:raise Invalid('Rust runtime staging digest')
-        result[component]={'package_name':name,'release':int(match[1]),'version':'0.2.0','sha256':record['sha256'],
+        result[component]={'package_name':name,'release':int(match[2]),'version':match[1],'sha256':record['sha256'],
                            'profile':'rust-candidate','automatic_activation':False}
     return result

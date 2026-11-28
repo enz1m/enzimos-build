@@ -313,11 +313,11 @@ def require_runtime_graphics(repo):
                           f'lacks graphics extensions: {", ".join(missing)}')
 
 
-def verify_official_flatpak_media(source, receipt, selected, flathub_apps, installer_release):
+def verify_official_flatpak_media(source, receipt, selected, flathub_apps, installer_version):
     expected = Path(__file__).with_name('default-flatpaks.txt').read_text().splitlines()
     if selected != expected or receipt.get('apps') != expected or flathub_apps:
         raise Invalid('official Flatpak media must carry the default fleet and Flathub runtimes only')
-    if installer_release < 4:
+    if installer_version < (0, 2, 0, 4):
         raise Invalid('official Flatpak media require installer 0.2.0-4 or newer')
     if digest(source/'enzimos.flatpakrepo') != ENZIMOS_DESCRIPTOR_SHA256:
         raise Invalid('official Flatpak media has a different repository descriptor')
@@ -332,7 +332,7 @@ def verify_official_flatpak_media(source, receipt, selected, flathub_apps, insta
         raise Invalid('official Flatpak media lacks the Browser WebKit Platform')
 
 
-def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_release=3):
+def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_version=(0, 2, 0, 3)):
     """Offline Flatpak sources on the medium, one directory per remote, each a create-usb
     repository plus its .flatpakrepo and apps.txt. Returns the manifest entries."""
     flatpaks, extra = [], {}
@@ -357,10 +357,10 @@ def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_relea
             raise Invalid('enzimOS Flatpak selection overlaps Flathub')
         if receipt.get('provenance') == OFFICIAL_FLATPAK_MEDIA:
             verify_official_flatpak_media(enzimos_flatpak, receipt, extra['enzimos_flatpaks'],
-                                         flatpaks, installer_release)
+                                         flatpaks, installer_version)
     if not flatpaks and not enzimos_flatpak:
         flatpak = None
-    if enzimos_flatpak and not flatpaks and installer_release < 3:
+    if enzimos_flatpak and not flatpaks and installer_version < (0, 2, 0, 3):
         raise Invalid('Flathub runtimes without apps require installer 0.2.0-3 or newer')
     for source in (flatpak, enzimos_flatpak):
         if source is not None:
@@ -461,8 +461,10 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         native_rust = stage_rust_runtime(installer_build, runtime_admission, runtime_repos)
         stage = out/'iso-root';(stage/'boot/limine').mkdir(parents=True);(stage/'EFI/BOOT').mkdir(parents=True)
         media = stage/'enzimos';(media/'packages').mkdir(parents=True)
+        installer_runtime = native_rust['installer']
+        installer_version = (*map(int, installer_runtime['version'].split('.')), installer_runtime['release'])
         flatpaks, enzimos_flatpaks = stage_flatpaks(
-            media, flatpak, enzimos_flatpak, installer_release=native_rust['installer']['release'])
+            media, flatpak, enzimos_flatpak, installer_version=installer_version)
         live = live_root(verified, cohort, desktop, out, version, package, native_installer['package'], runtime_admission/'rust-packages.pkg.tar.zst', installer=installer)
         limine = out/'live/root/usr/share/limine'
         for name in ('limine-bios-cd.bin', 'limine-uefi-cd.bin', 'limine-bios.sys'):shutil.copyfile(limine/name, stage/'boot/limine'/name)
