@@ -2,7 +2,7 @@
 """Explicit local AI package staging for development installation media."""
 import hashlib,json,shutil
 from pathlib import Path
-NAMES={'enzimos-inference-service','enzimos-ai-gateway','enzimos-dictation','enzimos-llama-cpu','enzimos-llama-vulkan','enzimos-whisper-cpu','enzimos-sherpa-onnx-cpu','enzimos-ai-models'}
+NAMES={'enzimos-inference-service','enzimos-ai-gateway','enzimos-dictation','enzimos-llama-cpu','enzimos-llama-vulkan','enzimos-whisper-cpu','enzimos-sherpa-onnx-cpu','enzimos-ai-models','enzimos-streaming-speech'}
 LIMITS={'enzimos-ai-models':2*1024*1024*1024}
 REQUIRED={'enzimos-inference-service','enzimos-ai-gateway','enzimos-llama-cpu'}
 def stage(report_path,media):
@@ -11,6 +11,8 @@ def stage(report_path,media):
     models='enzimos-ai-models' in names
     if report.get('schema')!=1 or report.get('status')!='PASS-ai-packages-built' or report.get('models_included') is not models:raise ValueError('reviewed AI package build required (models only in enzimos-ai-models)')
     if len(names)!=len(set(names)) or not REQUIRED<=set(names)<=NAMES:raise ValueError('invalid AI package set')
+    if 'enzimos-streaming-speech' in names and 'enzimos-dictation' not in names:
+        raise ValueError('streaming speech requires the dictation client')
     verified=[]
     for row in rows:
         p=Path(row['package']).resolve(strict=True)

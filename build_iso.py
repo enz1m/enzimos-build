@@ -66,7 +66,7 @@ COMPONENTS = (
     'enzimos-remote-access', 'enzimos-mount', 'enzimos-aft-mtp', 'enzimos-icon-theme',
     'enzimos-dev-monitor', 'enzimos-activity-service', 'enzimos-recovery-env',
     'enzimos-inference-service', 'enzimos-ai-gateway', 'enzimos-dictation', 'enzimos-llama-cpu',
-    'enzimos-llama-vulkan', 'enzimos-whisper-cpu', 'enzimos-sherpa-onnx-cpu', 'enzimos-ai-models',
+    'enzimos-llama-vulkan', 'enzimos-whisper-cpu', 'enzimos-sherpa-onnx-cpu', 'enzimos-ai-models', 'enzimos-streaming-speech',
     'enzimos-files', 'enzimos-text', 'enzimos-terminal', 'enzimos-store',
     'enzimos-app-permissions', 'enzimos-background-apps', 'enzui-mcp-center', 'enzimos-phone-link',
     'enzimos-iso-desktop', 'enzimos-iso-runtime-layout',

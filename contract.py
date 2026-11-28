@@ -117,7 +117,7 @@ APP_SOURCES = {'calendar': 'calendar-app', 'files': 'files-app', 'mail': 'mail-a
                'store': 'store-app', 'task-manager': 'task-manager-app',
                'terminal': 'terminal-emulator', 'text': 'text-app'}
 BASE_ROLES = {'native-base', 'native-shell-login', 'native-settings-repair', 'linux', 'linux-lts',
-              'nvidia', 'graphics-multilib', 'uefi-boot', 'bios-boot', 'independent-recovery', 'flatpak-runtime'}
+              'nvidia', 'graphics-multilib', 'uefi-boot', 'bios-boot', 'independent-recovery', 'flatpak-runtime', 'offline-voice-typing'}
 GATES = [
     'reviewed-source-pins-and-license-inventory',
     'clean-arch-build-environment-and-dependency-closure',

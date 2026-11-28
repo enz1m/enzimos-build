@@ -18,7 +18,7 @@ from rust_runtime_payload import COMPONENTS as RUST_COMPONENTS
 METADATA = {'.PKGINFO', '.BUILDINFO', '.MTREE'}
 AI_PACKAGES = ('enzimos-inference-service', 'enzimos-ai-gateway', 'enzimos-dictation',
                'enzimos-llama-cpu', 'enzimos-llama-vulkan', 'enzimos-whisper-cpu',
-               'enzimos-sherpa-onnx-cpu', 'enzimos-ai-models')
+               'enzimos-sherpa-onnx-cpu', 'enzimos-ai-models', 'enzimos-streaming-speech')
 DEVELOPER_MANIFEST = 'usr/share/enzimos/developer/extension/manifest.json'
 # Components the assembler takes through named options (not native_apps_payload).
 SINGLE = {
