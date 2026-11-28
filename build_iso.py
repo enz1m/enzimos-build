@@ -60,6 +60,7 @@ EXTRA_ARCH = ('greetd-agreety', 'linux-firmware-marvell', 'gst-plugin-va', 'gst-
 # enzimos-os and enzimos repositories is used.
 COMPONENTS = (
     'enzimos-native-policy', 'enzimos-system-backend', 'enzimos-update-client',
+    'enzimos-archive-keyring',
     'enzimos-rust-packages', 'enzimos-rust-installer', 'enzimos-rust-remote-access',
     'enzimos-rust-updates', 'enzimos-rust-recovery-ui',
     'enzimos-keyring', 'enzimos-greetd', 'enzimos-agent-harness', 'enzimos-developer-tools',
@@ -362,6 +363,8 @@ def enzimos_packages(work, base_url):
                 continue
             raise SystemExit(f'{name} is not published in {", ".join(ENZIMOS_REPOSITORIES)}')
         chosen[name] = best
+    if vercmp(chosen['enzimos-rust-installer'][1]['version'], '0.2.1-6') < 0:
+        raise SystemExit('the published installer must support archive keyring media')
     files = target / 'packages'
     files.mkdir(exist_ok=True)
     result = {}
@@ -550,6 +553,7 @@ def assemble(options):
     recovery = packages.pop('enzimos-recovery-env')
     surface_touch = packages.pop(SURFACE_TOUCH, None)
     log('writing component reports from the published packages')
+    iso_reports.require_update_enrollment(packages['enzimos-update-client'])
     reports = iso_reports.write(build / 'reports', packages)
     recovery_report = build / 'reports/recovery-env.json'
     recovery_report.write_text(json.dumps({'schema': 1, 'status': 'PASS-recovery-env-built',

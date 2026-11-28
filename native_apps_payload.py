@@ -12,6 +12,8 @@ COMPONENTS = {
     'phone-link': ('enzimos-phone-link', 'PASS-phone-link-package-built', 'usr/libexec/enzimos-phone-link/enzremote-signaling'),
     'mount': ('enzimos-mount', 'PASS-mount-package-built', 'usr/lib/enzimos-mount/enzimos-mountd'),
     'aft-mtp': ('enzimos-aft-mtp', 'PASS-aft-mtp-package-built', 'usr/bin/aft-mtp-mount'),
+    'archive-keyring': ('enzimos-archive-keyring', 'PASS-archive-keyring-package-built',
+                        'usr/lib/enzimos/enzimos-archive-enroll'),
     'keyring': ('enzimos-keyring', 'PASS-keyring-package-built', 'usr/bin/oo7-daemon'),
     'greetd': ('enzimos-greetd', 'PASS-greetd-package-built', 'usr/bin/greetd'),
     'dev-monitor': ('enzimos-dev-monitor', 'PASS-dev-monitor-package-built', 'usr/lib/enzimos/enzimos-dev-monitor'),
@@ -91,7 +93,22 @@ def theme_link(path, target, expected):
     return resolved.startswith(ICON_THEME + '/') and resolved.endswith('.svg') and 'sha256' in expected.get(resolved, {})
 
 
+ARCHIVE_KEYRING_FILES = {
+    'usr/lib/enzimos/enzimos-archive-enroll': 0o755,
+    'usr/lib/systemd/system/enzimos-archive-enroll.service': 0o644,
+    'usr/share/pacman/keyrings/enzimos.gpg': 0o644,
+    'usr/share/pacman/keyrings/enzimos-trusted': 0o644,
+    'usr/share/enzimos/pacman-repositories.conf': 0o644,
+    'usr/share/licenses/enzimos-archive-keyring/LICENSE': 0o644,
+}
+ARCHIVE_KEYRING_LINK = 'usr/lib/systemd/system/multi-user.target.wants/enzimos-archive-enroll.service'
+
+
 def allowed_path(component, path, directory=False):
+    if component == 'archive-keyring':
+        if directory:
+            return any(member.startswith(path + '/') for member in (*ARCHIVE_KEYRING_FILES, ARCHIVE_KEYRING_LINK))
+        return path in ARCHIVE_KEYRING_FILES or path == ARCHIVE_KEYRING_LINK
     if component == 'icon-theme':
         if directory:
             return path in ('usr', 'usr/share', 'usr/share/icons', 'usr/share/glib-2.0', 'usr/share/glib-2.0/schemas',
@@ -130,6 +147,12 @@ def stage(report_path, media, component):
     if component == 'icon-theme' and (any(expected.get(path, {}).get('mode') != mode for path, mode in ICON_THEME_FILES.items())
                                       or any(item.get('mode', 0o644) != 0o644 for item in expected.values())):
         raise ValueError('icon theme index/override inventory required; nothing executable')
+    if component == 'archive-keyring' and (
+        set(expected) != {*ARCHIVE_KEYRING_FILES, ARCHIVE_KEYRING_LINK}
+        or any(expected[path].get('mode') != mode for path, mode in ARCHIVE_KEYRING_FILES.items())
+        or expected[ARCHIVE_KEYRING_LINK] != {'link': '../enzimos-archive-enroll.service'}
+    ):
+        raise ValueError('archive keyring and enrollment inventory required')
     if component == 'dev-monitor':
         required = {'usr/bin/devmon': 0o755,
                     'usr/lib/systemd/user/enzimos-dev-monitor.service': 0o644,
@@ -193,7 +216,8 @@ def stage(report_path, media, component):
                 raise ValueError('native package inventory mismatch')
     actual = {path for path in seen if path in expected}
     if actual != set(expected) or info is None: raise ValueError('incomplete native package inventory')
-    if '\npkgname = '+name+'\n' not in '\n'+info or '\npkgver = '+version+'-'+str(release)+'\n' not in '\n'+info or '\narch = x86_64\n' not in '\n'+info:
+    architecture = 'any' if component == 'archive-keyring' else 'x86_64'
+    if '\npkgname = '+name+'\n' not in '\n'+info or '\npkgver = '+version+'-'+str(release)+'\n' not in '\n'+info or f'\narch = {architecture}\n' not in '\n'+info:
         raise ValueError('native package identity mismatch')
     if component == 'dev-monitor' and '\ndepend = enzimos-terminal>=0.1.0-2\n' not in '\n'+info:
         raise ValueError('monitor requires paired Terminal launch capability')

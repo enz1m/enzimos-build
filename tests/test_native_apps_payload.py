@@ -6,7 +6,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
-from native_apps_payload import COMPONENTS, GREETD_FILES, ICON_THEME_FILES, PORTAL_FILES, KEYRING_FILES, REPLACES, stage
+from native_apps_payload import ARCHIVE_KEYRING_FILES, ARCHIVE_KEYRING_LINK, COMPONENTS, GREETD_FILES, ICON_THEME_FILES, PORTAL_FILES, KEYRING_FILES, REPLACES, stage
 
 
 class NativePayload(unittest.TestCase):
@@ -14,7 +14,8 @@ class NativePayload(unittest.TestCase):
         name, status, executable = COMPONENTS[component]
         package = root/'native.pkg.tar.zst'; body = b'fixture native executable'
         identity = 'wrong' if case == 'identity' else name
-        info = f'pkgname = {identity}\npkgver = {version}-1\narch = x86_64\n'.encode()
+        arch = 'any' if component == 'archive-keyring' else 'x86_64'
+        info = f'pkgname = {identity}\npkgver = {version}-1\narch = {arch}\n'.encode()
         if component == 'dev-monitor' and case != 'unpaired-monitor':
             info += b'depend = enzimos-terminal>=0.1.0-2\n'
         replaced = REPLACES.get(component)
@@ -64,6 +65,14 @@ class NativePayload(unittest.TestCase):
                  'default-target-link': ('usr/lib/systemd/user', 'default.target.wants', 'enzimos-mountd.service', True),
                  'system-service-link': ('usr/lib/systemd/system', 'multi-user.target.wants', 'enzimos-mount-boot.service', True)}
         link_path = None
+        if component == 'archive-keyring':
+            for path, mode in ARCHIVE_KEYRING_FILES.items():
+                if path != executable:
+                    expected[path] = {'sha256': hashlib.sha256(body).hexdigest(), 'mode': mode}
+                    members.append((path, body, mode))
+            if case != 'missing-enrollment-link':
+                link_path = ARCHIVE_KEYRING_LINK
+                expected[link_path] = {'link': '../enzimos-archive-enroll.service'}
         aliases = {'theme-link': 'io.github.enzui.Terminal.svg', 'theme-dir-link': '../apps/io.github.enzui.Terminal.svg',
                    'theme-escape-link': '../../../hicolor/scalable/apps/other.svg', 'theme-missing-link': 'missing.svg'}
         if case in aliases:
@@ -109,6 +118,15 @@ class NativePayload(unittest.TestCase):
                 result = stage(self.fixture(root, component),media,component)
                 self.assertEqual(result['package_name'],COMPONENTS[component][0])
                 self.assertTrue((media/(component+'.pkg.tar.zst')).is_file())
+
+    def test_archive_keyring_requires_first_boot_activation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root/'media'
+            media.mkdir()
+            report = self.fixture(root, 'archive-keyring', 'missing-enrollment-link')
+            with self.assertRaisesRegex(ValueError, 'archive keyring and enrollment inventory'):
+                stage(report, media, 'archive-keyring')
 
     def test_monitor_requires_complete_activation_and_paired_terminal(self):
         for case in ('missing-monitor-cli', 'missing-monitor-systemd', 'missing-monitor-bus', 'wrong-monitor-api', 'unpaired-monitor'):

@@ -19,6 +19,7 @@ METADATA = {'.PKGINFO', '.BUILDINFO', '.MTREE'}
 AI_PACKAGES = ('enzimos-inference-service', 'enzimos-ai-gateway', 'enzimos-dictation',
                'enzimos-llama-cpu', 'enzimos-llama-vulkan', 'enzimos-whisper-cpu',
                'enzimos-sherpa-onnx-cpu', 'enzimos-ai-models', 'enzimos-streaming-speech')
+UPDATE_CONFIG = 'usr/share/enzimos/updates/updates.json'
 DEVELOPER_MANIFEST = 'usr/share/enzimos/developer/extension/manifest.json'
 # Components the assembler takes through named options (not native_apps_payload).
 SINGLE = {
@@ -35,6 +36,7 @@ NATIVE_OPTIONS = {
     'remote-access': 'remote_build', 'background-apps': 'background_build',
     'dev-monitor': 'monitor_build', 'xdg-desktop-portal-hyprland': 'portal_build',
     'greetd': 'greetd_build', 'keyring': 'keyring_build', 'phone-link': 'phone_build',
+    'archive-keyring': 'archive_keyring_build',
     'mount': 'mount_build', 'aft-mtp': 'aft_build', 'icon-theme': 'icon_theme_build',
 }
 APPS = ('files', 'text', 'task-manager')
@@ -65,7 +67,7 @@ def read_archive(path):
                 continue
             else:
                 files[name] = {'sha256': hashlib.sha256(data).hexdigest(), 'mode': member.mode & 0o7777}
-                if name.startswith('usr/share/enzimos/rust-candidates/') or name == DEVELOPER_MANIFEST:
+                if name.startswith('usr/share/enzimos/rust-candidates/') or name in (DEVELOPER_MANIFEST, UPDATE_CONFIG):
                     wanted[name] = data
     if info is None:
         raise Invalid(f'{Path(path).name}: not a pacman package')
@@ -75,6 +77,32 @@ def read_archive(path):
         if separator:
             fields.setdefault(key, []).append(value)
     return fields, files, wanted
+
+
+def require_update_enrollment(package):
+    _, files, wanted = read_archive(package)
+    units = 'usr/lib/systemd/system/'
+    material = 'usr/share/enzimos/updates/'
+    required = {
+        material + 'root.json': 0o644,
+        UPDATE_CONFIG: 0o644,
+        material + 'release-signer.fingerprint': 0o644,
+        'usr/lib/enzimos/enzimos-updates-enroll': 0o755,
+        units + 'enzimos-updates-enroll.service': 0o644,
+        units + 'enzimos-update-refresh.timer': 0o644,
+    }
+    links = {
+        units + 'multi-user.target.wants/enzimos-updates-enroll.service': '../enzimos-updates-enroll.service',
+        units + 'timers.target.wants/enzimos-update-refresh.timer': '../enzimos-update-refresh.timer',
+    }
+    if (any(files.get(path, {}).get('mode') != mode for path, mode in required.items())
+            or any(files.get(path) != {'link': target} for path, target in links.items())):
+        raise Invalid('published update client needs enrollment material and an enabled refresh timer')
+    config = json.loads(wanted[UPDATE_CONFIG])
+    if (config.get('lab_http') is not False or any(
+        not config.get(field, '').startswith('https://') for field in ('metadata_url', 'targets_url')
+    )):
+        raise Invalid('public installation media require HTTPS update enrollment')
 
 
 def identity(fields):

@@ -407,7 +407,7 @@ def write_media_checksums(media):
     (media/'SHA256SUMS').write_text(''.join(entries))
 
 
-def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, desktop=None, backend_build=None, flatpak=None, update_build=None, secure_key=None, secure_certificate=None, mcp_build=None, ai_build=None, activity_build=None, store_build=None, permissions_build=None, harness_build=None, developer_build=None, remote_build=None, background_build=None, terminal_build=None, installer_build=None, monitor_build=None, portal_build=None, greetd_build=None, recovery_env_build=None, enzimos_flatpak=None, app_builds=None, keyring_build=None, phone_build=None, mount_build=None, aft_build=None, icon_theme_build=None, *, runtime_repos=RUNTIME_REPOS, surface_touch_package=None):
+def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, desktop=None, backend_build=None, flatpak=None, update_build=None, secure_key=None, secure_certificate=None, mcp_build=None, ai_build=None, activity_build=None, store_build=None, permissions_build=None, harness_build=None, developer_build=None, remote_build=None, background_build=None, terminal_build=None, installer_build=None, monitor_build=None, portal_build=None, greetd_build=None, recovery_env_build=None, enzimos_flatpak=None, app_builds=None, keyring_build=None, phone_build=None, mount_build=None, aft_build=None, icon_theme_build=None, archive_keyring_build=None, *, runtime_repos=RUNTIME_REPOS, surface_touch_package=None):
     if not installer_build:raise Invalid('native installer package summary required for current live wrappers')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', label):
         raise Invalid('ISO label must be a single portable filename component')
@@ -514,7 +514,7 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
             raise Invalid('Task Manager is already selected as a Flatpak')
         # enzimos-mount depends on the Qt-free aft-mtp-mount package; admit both or neither.
         if bool(mount_build) != bool(aft_build):raise Invalid('mount and aft-mtp builds go together')
-        for report_path in (terminal_build, store_build, permissions_build, harness_build, developer_build, remote_build, background_build, monitor_build, mcp_build, portal_build, greetd_build, keyring_build, phone_build, mount_build, aft_build, icon_theme_build, *app_builds.values()):
+        for report_path in (terminal_build, store_build, permissions_build, harness_build, developer_build, remote_build, background_build, monitor_build, mcp_build, portal_build, greetd_build, keyring_build, phone_build, mount_build, aft_build, icon_theme_build, archive_keyring_build, *app_builds.values()):
             if report_path:
                 listed = load(report_path).get('files') or {}
                 owned.update(listed.keys() if isinstance(listed, dict) else listed)
@@ -559,7 +559,7 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
             ai_runtime = stage_ai(ai_build, media)
         native_apps = {}
         from native_apps_payload import stage as stage_native_app
-        for component, build_report in (('terminal', terminal_build), ('store', store_build), ('app-permissions', permissions_build), ('agent-harness', harness_build), ('developer-tools', developer_build), ('remote-access', remote_build), ('background-apps', background_build), ('dev-monitor', monitor_build), ('xdg-desktop-portal-hyprland', portal_build), ('greetd', greetd_build), ('keyring', keyring_build), ('phone-link', phone_build), ('mount', mount_build), ('aft-mtp', aft_build), ('icon-theme', icon_theme_build), *sorted(app_builds.items())):
+        for component, build_report in (('terminal', terminal_build), ('store', store_build), ('app-permissions', permissions_build), ('agent-harness', harness_build), ('developer-tools', developer_build), ('remote-access', remote_build), ('background-apps', background_build), ('dev-monitor', monitor_build), ('xdg-desktop-portal-hyprland', portal_build), ('greetd', greetd_build), ('keyring', keyring_build), ('phone-link', phone_build), ('mount', mount_build), ('aft-mtp', aft_build), ('icon-theme', icon_theme_build), ('archive-keyring', archive_keyring_build), *sorted(app_builds.items())):
             if build_report:
                 native_apps[component] = stage_native_app(build_report, media, component)
         secure_media = None
@@ -622,7 +622,7 @@ def main(argv=None):
         'activity-build', 'secure-key', 'secure-certificate', 'store-build', 'permissions-build',
         'harness-build', 'developer-build', 'remote-build', 'background-build', 'terminal-build',
         'monitor-build', 'portal-build', 'greetd-build', 'keyring-build', 'phone-build',
-        'mount-build', 'aft-build', 'icon-theme-build', 'recovery-env-build',
+        'mount-build', 'aft-build', 'icon-theme-build', 'archive-keyring-build', 'recovery-env-build',
     ):
         parser.add_argument('--' + name, type=Path)
     parser.add_argument('--enzimos-flatpak', type=Path,
