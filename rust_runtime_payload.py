@@ -37,7 +37,7 @@ def stage(summary_path, media, repository_root):
         package=runtime_archive(summary_path, record['package'])
         version = record.get('version')
         upstream = {
-            'installer': r'0\.2\.[012]',
+            'installer': r'0\.2\.[0123]',
             'packages': r'0\.2\.[01]',
         }.get(component, r'0\.2\.0')
         match = re.fullmatch(rf'({upstream})-([1-9][0-9]{{0,3}})', version) if isinstance(version, str) else None

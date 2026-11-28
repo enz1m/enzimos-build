@@ -379,6 +379,22 @@ def stage_flatpaks(media, flatpak=None, enzimos_flatpak=None, *, installer_versi
     return flatpaks, extra
 
 
+def stage_recovery_env(report, media):
+    built = load(report)
+    source = Path(built.get('package', ''))
+    if built.get('status') != 'PASS-recovery-env-built' or not source.is_file():
+        raise Invalid('reviewed recovery environment build required')
+    fields = subprocess.check_output(['bsdtar', '-qxOf', source, '.PKGINFO'], text=True).splitlines()
+    names = [field for field in fields if field.startswith('pkgname = ')]
+    versions = [field.removeprefix('pkgver = ') for field in fields if field.startswith('pkgver = ')]
+    match = re.fullmatch(r'0\.1\.0-([1-9][0-9]{0,3})', versions[0]) if len(versions) == 1 else None
+    if names != ['pkgname = enzimos-recovery-env'] or match is None:
+        raise Invalid('unexpected recovery environment package identity')
+    destination = media/'recovery-env.pkg.tar.zst'
+    shutil.copyfile(source, destination)
+    return {'release': int(match[1]), 'sha256': digest(destination)}
+
+
 def write_media_checksums(media):
     """Write hashes of media files, including the contents of OSTree aliases."""
     media = media.resolve(strict=True)
@@ -534,14 +550,7 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
             updater = load(update_build)
             if updater.get('package_name') != 'enzimos-update-client' or digest(Path(updater['package'])) != updater['sha256']:raise Invalid('reviewed update client build required')
             shutil.copyfile(updater['package'], media/'update-client.pkg.tar.zst')
-        recovery_env = None
-        if recovery_env_build:
-            # The on-disk recovery environment (recovery_env.py), installed onto the ESP.
-            built_env = load(recovery_env_build)
-            env_package = Path(built_env.get('package', ''))
-            if built_env.get('status') != 'PASS-recovery-env-built' or not env_package.is_file():raise Invalid('reviewed recovery environment build required')
-            shutil.copyfile(env_package, media/'recovery-env.pkg.tar.zst')
-            recovery_env = {'release': 1, 'sha256': digest(media/'recovery-env.pkg.tar.zst')}
+        recovery_env = stage_recovery_env(recovery_env_build, media) if recovery_env_build else None
         broker = None
         if mcp_build:
             broker = load(mcp_build)

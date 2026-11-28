@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from build_install_iso import stage_recovery_env
 import iso_reports
 import native_apps_payload
 from contract import Invalid
@@ -52,6 +53,15 @@ class IsoReports(unittest.TestCase):
                               {'usr/bin/other': (b'x', 0o755)})
             with self.assertRaises(Invalid):
                 iso_reports.native_report('mount', archive)
+
+    def test_recovery_environment_declares_archive_package_release(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / 'recovery.json'
+            archive = package(root / 'recovery.pkg.tar.zst', 'enzimos-recovery-env', '0.1.0-2', {})
+            report.write_text(json.dumps({'status': 'PASS-recovery-env-built', 'package': str(archive)}))
+            self.assertEqual(stage_recovery_env(report, root),
+                             {'release': 2, 'sha256': iso_reports.sha256(archive)})
 
     def test_rust_summary_counts_bound_binaries(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -54,10 +54,10 @@ class RuntimePayloadTests(unittest.TestCase):
             self.assertEqual(files, {'usr/share/enzui/SOURCE-REVISION': b'current desktop\n'})
     def test_version_allowances_are_component_specific(self):
         with tempfile.TemporaryDirectory() as tmp:
-            args = self.fixture(Path(tmp), versions={'installer': '0.2.2-2', 'packages': '0.2.1-2'})
+            args = self.fixture(Path(tmp), versions={'installer': '0.2.3-1', 'packages': '0.2.1-4'})
             result = stage(*args)
-            self.assertEqual((result['installer']['version'], result['installer']['release']), ('0.2.2', 2))
-            self.assertEqual((result['packages']['version'], result['packages']['release']), ('0.2.1', 2))
+            self.assertEqual((result['installer']['version'], result['installer']['release']), ('0.2.3', 1))
+            self.assertEqual((result['packages']['version'], result['packages']['release']), ('0.2.1', 4))
         for component, version in [('updates', '0.2.1-1'), ('packages', '0.2.2-1')]:
             with self.subTest(component=component, version=version), tempfile.TemporaryDirectory() as tmp:
                 args = self.fixture(Path(tmp), versions={component: version})
