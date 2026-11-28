@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 import shutil
 from stat import S_IMODE
+import subprocess
 import sys
 
 from contract import Invalid, digest, load
@@ -228,7 +229,6 @@ def desktop_archive(stage, media, owned=frozenset()):
     Paths a native package installed on the target owns are left out: the
     package provides them, and an archived copy would replace its files with
     the archive's uniform mtime (pacman -Qkk then reports them altered)."""
-    import subprocess
     stage = Path(stage).resolve(strict=True)
     files = {p.relative_to(stage).as_posix(): digest(p) for p in sorted(stage.rglob('*')) if p.is_file() and not p.is_symlink() and p.relative_to(stage).as_posix() not in owned}
     exclude = media/'desktop-preview.exclude'
@@ -271,7 +271,6 @@ def check_desktop_integration_packages(desktop, names):
 def replaced_dependents(cohort, records, replaced):
     """The Arch body installs the target cohort before any native package: none of it may
     depend on a package the media leave out for a native replacement."""
-    import subprocess
     for record in records:
         info = subprocess.run(['bsdtar', '-qxOf', str(cohort/'packages'/record['url'].rsplit('/', 1)[-1]), '.PKGINFO'],
                               capture_output=True, text=True, check=True, timeout=120).stdout
