@@ -511,7 +511,7 @@ def extract_data(package, destination, kind):
     if staging.exists():
         shutil.rmtree(staging)
     staging.mkdir(parents=True)
-    run('bsdtar', '-xpf', package, '-C', staging, f'usr/share/enzimos-iso/{kind}')
+    run('bsdtar', '-xpf', package, '--no-xattrs', '-C', staging, f'usr/share/enzimos-iso/{kind}')
     (staging / 'usr/share/enzimos-iso' / kind).rename(destination)
     shutil.rmtree(staging)
     return destination
