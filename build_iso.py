@@ -55,7 +55,7 @@ TOOLS = ('python', 'bubblewrap', 'fakeroot', 'libarchive', 'squashfs-tools', 'xo
 PURPOSE = 'install-media-desktop-login-not-release-payload'
 # Arch packages the enzimOS components need beyond the reviewed set.
 EXTRA_ARCH = ('greetd-agreety', 'linux-firmware-marvell', 'gst-plugin-va', 'gst-plugins-bad', 'libnotify', 'poppler-glib',
-              'xorg-xkbcomp', 'libbsd', 'libmd')
+              'xorg-xkbcomp', 'libbsd', 'libmd', 'noise-suppression-for-voice')
 # enzimOS packages the media carry, by name. The newest version across the
 # enzimos-os and enzimos repositories is used.
 COMPONENTS = (
