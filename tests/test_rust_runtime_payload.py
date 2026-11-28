@@ -52,15 +52,17 @@ class RuntimePayloadTests(unittest.TestCase):
                 files = {str(Path(member.name)): archive.extractfile(member).read()
                          for member in archive if member.isfile()}
             self.assertEqual(files, {'usr/share/enzui/SOURCE-REVISION': b'current desktop\n'})
-    def test_only_installer_can_advance_to_0_2_2(self):
+    def test_version_allowances_are_component_specific(self):
         with tempfile.TemporaryDirectory() as tmp:
-            args = self.fixture(Path(tmp), versions={'installer': '0.2.2-1'})
-            installer = stage(*args)['installer']
-            self.assertEqual((installer['version'], installer['release']), ('0.2.2', 1))
-        with tempfile.TemporaryDirectory() as tmp:
-            args = self.fixture(Path(tmp), versions={'updates': '0.2.2-1'})
-            with self.assertRaisesRegex(Invalid, 'paired Rust runtime package identity'):
-                stage(*args)
+            args = self.fixture(Path(tmp), versions={'installer': '0.2.2-2', 'packages': '0.2.1-2'})
+            result = stage(*args)
+            self.assertEqual((result['installer']['version'], result['installer']['release']), ('0.2.2', 2))
+            self.assertEqual((result['packages']['version'], result['packages']['release']), ('0.2.1', 2))
+        for component, version in [('updates', '0.2.1-1'), ('packages', '0.2.2-1')]:
+            with self.subTest(component=component, version=version), tempfile.TemporaryDirectory() as tmp:
+                args = self.fixture(Path(tmp), versions={component: version})
+                with self.assertRaisesRegex(Invalid, 'paired Rust runtime package identity'):
+                    stage(*args)
 
     def test_package_hooks_cannot_enter_copy_only_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -36,7 +36,10 @@ def stage(summary_path, media, repository_root):
         spec=json.loads((Path(repository_root)/('enzimos-'+component)/'packaging/rust/runtime.json').read_text())
         package=runtime_archive(summary_path, record['package'])
         version = record.get('version')
-        upstream = r'0\.2\.[012]' if component == 'installer' else r'0\.2\.0'
+        upstream = {
+            'installer': r'0\.2\.[012]',
+            'packages': r'0\.2\.[01]',
+        }.get(component, r'0\.2\.0')
         match = re.fullmatch(rf'({upstream})-([1-9][0-9]{{0,3}})', version) if isinstance(version, str) else None
         if (record.get('package_name')!=name or match is None
                 or record.get('automatic_activation') is not False or record.get('elf_count')!=COUNTS[component]
