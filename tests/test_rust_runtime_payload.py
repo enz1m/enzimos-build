@@ -52,13 +52,13 @@ class RuntimePayloadTests(unittest.TestCase):
                 files = {str(Path(member.name)): archive.extractfile(member).read()
                          for member in archive if member.isfile()}
             self.assertEqual(files, {'usr/share/enzui/SOURCE-REVISION': b'current desktop\n'})
-    def test_only_installer_can_advance_to_0_2_1(self):
+    def test_only_installer_can_advance_to_0_2_2(self):
         with tempfile.TemporaryDirectory() as tmp:
-            args = self.fixture(Path(tmp), versions={'installer': '0.2.1-1'})
+            args = self.fixture(Path(tmp), versions={'installer': '0.2.2-1'})
             installer = stage(*args)['installer']
-            self.assertEqual((installer['version'], installer['release']), ('0.2.1', 1))
+            self.assertEqual((installer['version'], installer['release']), ('0.2.2', 1))
         with tempfile.TemporaryDirectory() as tmp:
-            args = self.fixture(Path(tmp), versions={'updates': '0.2.1-1'})
+            args = self.fixture(Path(tmp), versions={'updates': '0.2.2-1'})
             with self.assertRaisesRegex(Invalid, 'paired Rust runtime package identity'):
                 stage(*args)
 

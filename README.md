@@ -58,8 +58,19 @@ python3 -c "import install_iso_vm as v; print(v.run('install', 'uefi', '/tmp/enz
 The installer stages the native packages in RAM (about 1.6 GB; the AI models
 are read from the medium), so the VM needs at least 4 GiB and the host about
 8 GiB of free memory. Release images were qualified with an 8 GiB guest and a
-64 GiB target disk. A 24 GiB target disk is too small for the preinstalled
-Flatpaks and the swap file.
+64 GiB target disk. Installer 0.2.2 calculates the minimum before
+partitioning. The 2026-11-28 package and Flatpak selection needs **31 GiB** on
+an 8 GiB VM without NVIDIA graphics, or **32 GiB** with the maximum default
+8 GiB swap file. NVIDIA graphics and Surface IPTS can increase the
+requirement. The graphical installer shows the minimum for the running
+machine and media.
+
+The media manifest records installed package and model sizes, the unpacked
+desktop stage, and the uncompressed OSTree objects for the offline Flatpaks.
+The installer also reserves a 4 GiB boot partition for kernels and recovery,
+64 MiB for alignment and encryption metadata, and free space for Btrfs,
+snapshots and updates. Swap uses 1–8 GiB based on detected RAM or the explicit
+unattended swap size.
 
 ### Add your own files
 
@@ -73,27 +84,26 @@ sudo cp -a ~/enzimos-iso/work/build/desktop ~/my-desktop
 sudo python3 build_iso.py --output ~/enzimos-iso --desktop ~/my-desktop
 ```
 
-For example, to add Surface Laptop touch and pen support:
+### Surface touch and pen
 
-1. Apply the `drivers/hid/ipts/` hunks from the [Linux Surface IPTS patch](https://github.com/linux-surface/linux-surface/blob/arch-7.2.15-1/patches/7.2/0005-ipts.patch).
-   Build the module against the headers of the kernel the ISO carries (the
-   `kernel` field of the JSON summary) with
-   `make -C "$KERNEL_HEADERS" M="$IPTS_DRIVER" CONFIG_HID_IPTS=m modules`.
-2. Build [iptsd v3.1.1](https://github.com/linux-surface/iptsd/tree/v3.1.1) with
-   Meson, prefix `/usr`, systemd support and `-Ddebug_tools=[]`, and install it
-   to a temporary `DESTDIR`.
-3. Add both to the stage copy:
+Build [iptsd v3.1.1](https://github.com/linux-surface/iptsd/tree/v3.1.1) with
+Meson, prefix `/usr`, systemd support and `-Ddebug_tools=[]`, and install it
+to a temporary `DESTDIR`. Add the daemon to the desktop stage with:
 
-   ```sh
-   sudo python3 stage_surface_touch.py ~/my-desktop \
-       --module "$IPTS_DRIVER/ipts.ko" \
-       --iptsd-stage "$IPTSD_STAGE" \
-       --kernel-release "$KERNEL_RELEASE"
-   ```
+```sh
+sudo python3 stage_surface_touch.py ~/my-desktop --iptsd-stage "$IPTSD_STAGE"
+```
 
-The module loads only on the exact kernel it was built for, so rebuild it when
-the published kernel changes. DMA remapping and module signature enforcement
-can require a separately qualified kernel.
+When `enzimos-ipts-dkms` is published, the ISO bundles it and the matching
+Arch build dependencies. The installer selects that cohort only when it
+detects the IPTS MEI client. DKMS's pacman hooks build for Linux and Linux LTS
+and rebuild on kernel and header updates. The live installer uses external
+input or firmware-supported input. Keep the retired prebuilt module directory
+and its udev rule and systemd unit out of the desktop stage.
+
+For signature-enforcing kernels, configure DKMS's `mok_signing_key` and
+`mok_certificate` in `/etc/dkms/framework.conf.d/` before rebuilding against
+the enrolled certificate. Keep the private key on the installed machine.
 
 ## Refresh a cached Arch cohort
 

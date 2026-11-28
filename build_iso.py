@@ -71,7 +71,9 @@ COMPONENTS = (
     'enzimos-app-permissions', 'enzimos-background-apps', 'enzui-mcp-center', 'enzimos-phone-link',
     'enzimos-iso-desktop', 'enzimos-iso-runtime-layout',
 )
-OPTIONAL_COMPONENTS = ('enzimos-xdg-desktop-portal-hyprland',)
+SURFACE_TOUCH = 'enzimos-ipts-dkms'
+SURFACE_ARCH = ('dkms', 'linux-headers', 'linux-lts-headers')
+OPTIONAL_COMPONENTS = ('enzimos-xdg-desktop-portal-hyprland', SURFACE_TOUCH)
 BUILDER = 'enzimos-builder'
 INSIDE = Path('/work')
 
@@ -391,13 +393,13 @@ def requested_packages(components):
     for record in components.values():
         native.update(bare(p) for p in record['provides'])
     for name, record in components.items():
-        if name in ('enzimos-iso-desktop', 'enzimos-iso-runtime-layout', 'enzimos-recovery-env'):
+        if name in ('enzimos-iso-desktop', 'enzimos-iso-runtime-layout', 'enzimos-recovery-env', SURFACE_TOUCH):
             continue
         names.update(bare(d) for d in record['depends'] if bare(d) not in native)
     return sorted(names)
 
 
-def resolve_arch(work, mirror, requested):
+def resolve_arch(work, mirror, requested, *, surface_touch=False):
     """Resolve and download the newest Arch packages; write the cohort the assembler reads."""
     plan = work / 'plan'
     if plan.exists():
@@ -412,18 +414,33 @@ def resolve_arch(work, mirror, requested):
     (plan / 'pacman.conf').write_text(config)
     log('synchronizing Arch Linux package databases')
     run('pacman', '--config', plan / 'pacman.conf', '-Sy', stdout=subprocess.DEVNULL)
-    result = run('pacman', '--config', plan / 'pacman.conf', '-Sp', '--noconfirm',
-                 '--print-format', '%n\t%v\t%a\t%r\t%l\t%s\t%h', *requested,
-                 capture_output=True, text=True, check=False)
-    if result.returncode:
-        raise SystemExit('Arch package resolution failed:\n' + result.stderr[-4000:])
-    records = []
-    for line in result.stdout.splitlines():
-        name, version, arch, repo, url, size, checksum = line.split('\t')
-        if not url.startswith(servers[repo] + '/'):
-            raise SystemExit(f'unexpected package URL {url}')
-        records.append({'name': name, 'version': version, 'architecture': arch, 'repository': repo, 'url': url,
-                        'download_bytes_from_metadata': int(size), 'sha256_from_metadata': checksum})
+    def resolve(requested):
+        result = run('pacman', '--config', plan / 'pacman.conf', '-Sp', '--noconfirm',
+                     '--print-format', '%n\t%v\t%a\t%r\t%l\t%s\t%h', *requested,
+                     capture_output=True, text=True, check=False)
+        if result.returncode:
+            raise SystemExit('Arch package resolution failed:\n' + result.stderr[-4000:])
+        records = {}
+        for line in result.stdout.splitlines():
+            name, version, arch, repo, url, size, checksum = line.split('\t')
+            if not url.startswith(servers[repo] + '/'):
+                raise SystemExit(f'unexpected package URL {url}')
+            records[name] = {'name': name, 'version': version, 'architecture': arch, 'repository': repo, 'url': url,
+                            'download_bytes_from_metadata': int(size), 'sha256_from_metadata': checksum}
+        return records
+
+    base = resolve(requested)
+    records = base
+    if surface_touch:
+        records = resolve([*requested, *SURFACE_ARCH])
+        if set(SURFACE_ARCH) & base.keys() or any(records.get(name) != record for name, record in base.items()):
+            raise SystemExit('the IPTS dependency cohort changes the base Arch package plan')
+        for kernel in ('linux', 'linux-lts'):
+            if records[kernel]['version'] != records[kernel + '-headers']['version']:
+                raise SystemExit(f'{kernel} and its IPTS build headers differ')
+        for name in records.keys() - base.keys():
+            records[name]['surface_touch_only'] = True
+    records = list(records.values())
     log(f'{len(records)} Arch packages resolved')
     cohort = work / 'cohort'
     packages = cohort / 'packages'
@@ -477,7 +494,8 @@ def inside(options):
     work = INSIDE
     options = json.loads(options)
     components = enzimos_packages(work, options['enzimos_url'])
-    resolve_arch(work, options['arch_mirror'], requested_packages(components))
+    resolve_arch(work, options['arch_mirror'], requested_packages(components),
+                 surface_touch=SURFACE_TOUCH in components)
     for name in ('flathub.flatpakrepo',):
         fetch(FLATHUB_DESCRIPTOR, work / name)
     run('chown', '-R', f'{BUILDER}:{BUILDER}', work / 'cohort', work / 'enzimos', work / 'flathub.flatpakrepo',
@@ -530,6 +548,7 @@ def assemble(options):
         desktop = work / 'desktop.input'
     layout = extract_data(packages.pop('enzimos-iso-runtime-layout'), build / 'runtime-layout', 'runtime-layout')
     recovery = packages.pop('enzimos-recovery-env')
+    surface_touch = packages.pop(SURFACE_TOUCH, None)
     log('writing component reports from the published packages')
     reports = iso_reports.write(build / 'reports', packages)
     recovery_report = build / 'reports/recovery-env.json'
@@ -553,7 +572,7 @@ def assemble(options):
     report = build_install_iso.build(
         None, cohort, policy, cohort / 'keyring', cohort / 'trust-lock.json', build / 'iso', label,
         desktop=desktop, recovery_env_build=recovery_report, app_builds=apps, runtime_repos=layout,
-        **flatpak, **secure, **reports)
+        surface_touch_package=surface_touch, **flatpak, **secure, **reports)
     iso = Path(report['iso'])
     (build / 'result.json').write_text(json.dumps({
         'iso': str(iso.relative_to(work)), 'iso_sha256': report['iso_sha256'], 'iso_bytes': report['iso_bytes'],

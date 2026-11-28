@@ -3,7 +3,7 @@
 """Install the enzimOS development ISO onto a blank private virtual disk, then boot it.
 
 install: the ISO boots as a CD (UEFI OVMF or BIOS SeaBIOS) with a TEST answer CD
-(label ENZIMOS_ANSWERS) and one blank 24 GiB qcow2 target; the unattended installer must
+(label ENZIMOS_ANSWERS) and one blank 64 GiB qcow2 target by default; the unattended installer must
 print ENZIMOS_INSTALL_PASS and power off. boot: the installed disk alone boots (UEFI
 with the install run's firmware variables, or BIOS), the LUKS prompt is answered with the
 public test passphrase on the serial console, and the test first-boot check must print
@@ -318,7 +318,7 @@ def clone_boot_source(previous, mode, output, review_only=False):
     return prior, previous
 
 
-def run(phase, mode, output, iso=None, answers=None, previous=None, payload=None, expect=None, interactive=False, media='cd', vnc=None, hold=False, disk_gib=24, existing=None, scratch_disk=False, review_reboots=False, network=False, backup_usb=False, display_size=None, secure_firmware=False, rescue_iso=None, corrupt_live=False, guest_ram_mib=2048, internet=False, boot_seconds=None, resume_review=False):
+def run(phase, mode, output, iso=None, answers=None, previous=None, payload=None, expect=None, interactive=False, media='cd', vnc=None, hold=False, disk_gib=64, existing=None, scratch_disk=False, review_reboots=False, network=False, backup_usb=False, display_size=None, secure_firmware=False, rescue_iso=None, corrupt_live=False, guest_ram_mib=2048, internet=False, boot_seconds=None, resume_review=False):
     if type(resume_review) is not bool or (resume_review and (phase != 'boot' or not vnc or expect or payload or rescue_iso or hold or not previous)):
         raise Invalid('continued review requires an attended boot without qualification payloads or markers')
     if type(internet) is not bool or (internet and (not network or not vnc or phase != 'boot')):
@@ -350,7 +350,7 @@ def run(phase, mode, output, iso=None, answers=None, previous=None, payload=None
             if built['status'] != 'PASS-install-iso-built' or digest(iso) != built['iso_sha256']:raise Invalid('ISO does not match its build report')
             # hold: a human review install with no test volume; the VM runs until the guest restarts.
             if not interactive and not hold:answers_iso(output, answers, 'ENZIMOS_TESTCHECK' if vnc else 'ENZIMOS_ANSWERS')
-            if disk_gib not in (24,64):raise Invalid('review disk must be 24 or 64 GiB')
+            if type(disk_gib) is not int or not 24 <= disk_gib <= 64:raise Invalid('review disk must be 24–64 GiB')
             if existing:
                 old=Path(existing).resolve(strict=True);prior=load(old)
                 if prior.get('status')!='PASS-install-iso-phase' or digest(old.parent/'target.qcow2')!=prior.get('disk_sha256'):raise Invalid('review source disk identity mismatch')
@@ -549,7 +549,7 @@ if __name__ == '__main__':
     p.add_argument('--backup-usb',action='store_true',help='attach a private 8 GiB USB file-rescue test disk; requires --vnc')
     p.add_argument('--scratch-disk',action='store_true',help='attach a blank private 64 GiB partition-test disk')
     p.add_argument('--boot-seconds',type=int,help='unattended boot bound for long payloads (900 s to 4 h; default 900 s)')
-    p.add_argument('--disk-gib',type=int,choices=(24,64),default=24);p.add_argument('--existing',type=Path,help='clone a successful private install disk for alongside testing')
+    p.add_argument('--disk-gib',type=int,default=64,metavar='24–64');p.add_argument('--existing',type=Path,help='clone a successful private install disk for alongside testing')
     p.add_argument('--hold', action='store_true', help='graphical install for human review: no test volume, run until the guest restarts')
     p.add_argument('--network', action='store_true', help='isolated virtual Ethernet with DHCP; no external network or host forwarding')
     p.add_argument('--internet', action='store_true', help='explicit outbound user-mode NAT for attended boot fixtures; requires --network and --vnc, no inbound forwarding')

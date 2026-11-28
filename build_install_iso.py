@@ -125,7 +125,9 @@ def live_root(verified, cohort, desktop, out, version_file, policy_package, inst
     desktop snapshot + graphical installer, as a root-owned squashfs; its own kernel and a
     small initramfs that mounts it (so the live kernel always matches its modules)."""
     work = out/'live';work.mkdir()
-    names = sorted(r['url'].rsplit('/', 1)[-1] for r in verified['packages'] if r['name'] not in LIVE_EXCLUDE and not r['name'].startswith('lib32-'))
+    excluded = LIVE_EXCLUDE | {r['name'] for r in verified['packages'] if r.get('surface_touch_only')}
+    names = sorted(r['url'].rsplit('/', 1)[-1] for r in verified['packages']
+                   if r['name'] not in excluded and not r['name'].startswith('lib32-'))
     (work/'live-packages.txt').write_text(''.join(n+'\n' for n in names))
     (work/'live-files.txt').write_text(''.join(f'{a} {b}\n' for a, b in LIVE_FILES.items()))
     shutil.copyfile(version_file, work/'VERSION')
@@ -175,7 +177,7 @@ def live_root(verified, cohort, desktop, out, version_file, policy_package, inst
     # builder cgroup. Bound the cache independently of compressor workers.
     squash = f"cd /work && find root -xdev -uid {os.getuid()} -exec chown -h 0:0 {{}} +; mksquashfs root live.sfs -noappend -comp zstd -Xcompression-level {level} -b 1M -processors {processors} -mem 256M -no-progress -quiet"
     run_command(fake(squash, True), out, 'live-squashfs', 3600)
-    return {'kernel': kver, 'packages': len(names), 'excluded': sorted(LIVE_EXCLUDE), 'squashfs': work/'live.sfs',
+    return {'kernel': kver, 'packages': len(names), 'excluded': sorted(excluded), 'squashfs': work/'live.sfs',
             'vmlinuz': artifacts/'vmlinuz-linux', 'initrd': artifacts/'enzimos-live.img', 'rescue_initrd':artifacts/'enzimos-rescue.img'}
 
 
@@ -405,7 +407,7 @@ def write_media_checksums(media):
     (media/'SHA256SUMS').write_text(''.join(entries))
 
 
-def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, desktop=None, backend_build=None, flatpak=None, update_build=None, secure_key=None, secure_certificate=None, mcp_build=None, ai_build=None, activity_build=None, store_build=None, permissions_build=None, harness_build=None, developer_build=None, remote_build=None, background_build=None, terminal_build=None, installer_build=None, monitor_build=None, portal_build=None, greetd_build=None, recovery_env_build=None, enzimos_flatpak=None, app_builds=None, keyring_build=None, phone_build=None, mount_build=None, aft_build=None, icon_theme_build=None, *, runtime_repos=RUNTIME_REPOS):
+def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, desktop=None, backend_build=None, flatpak=None, update_build=None, secure_key=None, secure_certificate=None, mcp_build=None, ai_build=None, activity_build=None, store_build=None, permissions_build=None, harness_build=None, developer_build=None, remote_build=None, background_build=None, terminal_build=None, installer_build=None, monitor_build=None, portal_build=None, greetd_build=None, recovery_env_build=None, enzimos_flatpak=None, app_builds=None, keyring_build=None, phone_build=None, mount_build=None, aft_build=None, icon_theme_build=None, *, runtime_repos=RUNTIME_REPOS, surface_touch_package=None):
     if not installer_build:raise Invalid('native installer package summary required for current live wrappers')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', label):
         raise Invalid('ISO label must be a single portable filename component')
@@ -463,6 +465,18 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         media = stage/'enzimos';(media/'packages').mkdir(parents=True)
         installer_runtime = native_rust['installer']
         installer_version = (*map(int, installer_runtime['version'].split('.')), installer_runtime['release'])
+        surface_names = {r['name'] for r in target_packages if r.get('surface_touch_only')}
+        if bool(surface_touch_package) != bool(surface_names):
+            raise Invalid('IPTS package and conditional Arch build cohort must be supplied together')
+        if surface_names and any((Path(desktop)/path).exists() for path in (
+            'usr/lib/enzimos-surface-touch',
+            'usr/lib/systemd/system/enzimos-surface-touch.service',
+            'usr/lib/udev/rules.d/70-enzimos-surface-touch.rules',
+        )):
+            raise Invalid('the DKMS media require a desktop stage without prebuilt IPTS')
+        if surface_names and (installer_version < (0, 2, 2, 1)
+                              or not {'dkms', 'linux-headers', 'linux-lts-headers'} <= surface_names):
+            raise Invalid('IPTS requires installer 0.2.2 and a complete conditional Arch build cohort')
         flatpaks, enzimos_flatpaks = stage_flatpaks(
             media, flatpak, enzimos_flatpak, installer_version=installer_version)
         live = live_root(verified, cohort, desktop, out, version, package, native_installer['package'], runtime_admission/'rust-packages.pkg.tar.zst', installer=installer)
@@ -480,8 +494,10 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
         # NVIDIA's proprietary userspace + open kernel modules: installed only on NVIDIA hardware.
         nvidia = {'nvidia-open', 'nvidia-open-lts', 'nvidia-utils', 'lib32-nvidia-utils'}
         by_name = {r['name']: r['url'].rsplit('/', 1)[-1] for r in target_packages}
-        (media/'package-files.txt').write_text(''.join(n+'\n' for n in names if n not in {by_name[x] for x in nvidia & set(by_name)}))
+        (media/'package-files.txt').write_text(''.join(n+'\n' for n in names if n not in {by_name[x] for x in (nvidia & set(by_name)) | surface_names}))
         (media/'nvidia-files.txt').write_text(''.join(by_name[x]+'\n' for x in sorted(nvidia & set(by_name))))
+        if surface_names:
+            (media/'surface-files.txt').write_text(''.join(by_name[x]+'\n' for x in sorted(surface_names)))
         (media/'packages.txt').write_text(''.join(f"{r['name']} {r['version']}\n" for r in sorted(target_packages, key=lambda r: r['name'])))
         public_cache(out/'admission', Path(keyring).resolve(strict=True), cohort/'packages', verified['packages'])
         (media/'public-keys').mkdir()
@@ -560,6 +576,22 @@ def build(assembly, cohort, policy_build, keyring, trust_lock, output, label, de
                     'review_before': lock['review_before'], 'kernel': live['kernel'], 'live': {'packages': live['packages'], 'excluded': live['excluded'], 'graphical_installer': True, 'native_installer': native_installer}, 'installer_sha256': digest(out/'live/root/usr/lib/enzimos-installer/enzimos-install.sh'), 'desktop_preview_files': desktop_files, 'flatpaks': flatpaks, **enzimos_flatpaks, 'update_client': None if updater is None else {'release':updater['release'],'sha256':updater['sha256']}, **({} if recovery_env is None else {'recovery_env': recovery_env}), 'mcp_center': None if broker is None else {'release':broker['release'],'sha256':broker['sha256']}, 'backend': None if backend is None else {'release': backend['release'], 'sha256': backend['sha256']}}
         if xwayland:
             manifest['desktop_xwayland'] = xwayland
+        if surface_touch_package:
+            source = Path(surface_touch_package)
+            if source.is_symlink() or not 0 < source.stat().st_size <= 2 * 1024**2:
+                raise Invalid('bounded IPTS DKMS package required')
+            pkginfo = subprocess.check_output(['bsdtar', '-qxOf', source, '.PKGINFO'], text=True).splitlines()
+            versions = [row.removeprefix('pkgver = ') for row in pkginfo if row.startswith('pkgver = ')]
+            if ('pkgname = enzimos-ipts-dkms' not in pkginfo or 'arch = any' not in pkginfo
+                    or 'depend = dkms' not in pkginfo or len(versions) != 1):
+                raise Invalid('unexpected IPTS DKMS package identity')
+            destination = media/'ipts-dkms.pkg.tar.zst'
+            shutil.copyfile(source, destination)
+            manifest['surface_touch'] = {'version': versions[0], 'sha256': digest(destination),
+                                         'arch_packages': sorted(surface_names)}
+        if installer_version >= (0, 2, 2, 1):
+            from storage_payload import measure
+            manifest['storage_payload'] = measure(media)
         (media/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
         write_media_checksums(media)
         run_command(xorriso(stage, out), out, 'xorriso', 900)
